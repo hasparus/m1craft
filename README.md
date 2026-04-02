@@ -1,6 +1,6 @@
 # mc-arm64
 
-Run Minecraft Forge 1.18.2 natively on Apple Silicon — no Rosetta.
+Run Minecraft Forge natively on Apple Silicon. Doubled my FPS (30 → 70) by eliminating Rosetta.
 
 Forge 1.18.2 ships LWJGL 3.2.1, which has no arm64 macOS support. Both CurseForge and the vanilla Minecraft Launcher redownload the x86_64 libraries, so you're stuck on Rosetta emulation. This repo swaps in LWJGL 3.3.3 (which has arm64 natives) and launches Forge directly, bypassing both launchers.
 
@@ -41,16 +41,17 @@ INSTANCE="$HOME/Documents/curseforge/minecraft/Instances/Your Pack Name" \
 
 **`setup.sh`** downloads LWJGL 3.3.3 JARs + arm64 `.dylib` files into a directory CurseForge doesn't manage, so they won't be overwritten.
 
-**`launch.sh`** builds a classpath with LWJGL 3.3.3 instead of 3.2.1, points `-Dorg.lwjgl.librarypath` at the arm64 natives, and launches Forge's `BootstrapLauncher`.
+**`launch.sh`** reads the Forge version JSONs from your CurseForge install to build the classpath automatically — no hardcoded library versions. It swaps LWJGL 3.2.x for 3.3.3, points `-Dorg.lwjgl.librarypath` at the arm64 natives, and launches Forge.
 
 **`mc-auth.py`** handles Microsoft authentication (device code flow via `login.live.com` → Xbox Live → XSTS → Minecraft). Zero dependencies beyond Python stdlib. Tokens cached at `~/.mc-auth-cache.json`.
 
+**`resolve-classpath.py`** parses the Forge and base Minecraft version JSONs to produce the classpath, module path, and launch arguments. This means the script adapts when CurseForge updates Forge — no manual classpath editing needed.
+
 ## Limitations
 
-- **Forge 1.18.2 only.** The classpath in `launch.sh` is pinned to Forge 40.3.0 / MC 1.18.2. Other Forge versions need different library versions.
-- **CurseForge Forge updates will break it.** If CurseForge updates Forge for your modpack, the library versions in `launch.sh` won't match. You'll need to update the script.
 - The default instance is "Isle of Berk (Claws of Berk)". Set the `INSTANCE` env var for other modpacks.
 - Window size (1024x768) and memory (-Xmx8G) are hardcoded in `launch.sh`. Edit as needed.
+- Tested with Forge 1.18.2. Should work with other Forge versions that use LWJGL 3.2.x, but hasn't been verified.
 
 ## Prior art
 
