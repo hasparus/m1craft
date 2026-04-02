@@ -27,7 +27,6 @@ First launch opens your browser for Microsoft login. After that, auth is cached 
 - Downloads LWJGL 3.3.3 Java JARs from Maven Central
 - Downloads and extracts LWJGL 3.3.3 arm64 native dylibs
 - Copies `launch.sh` and `mc-auth.py` into place
-- Creates a `.command` desktop shortcut
 
 ### `launch.sh`
 - Finds Zulu 17 ARM
@@ -54,7 +53,7 @@ Tokens cached at `~/.mc-auth-cache.json` (chmod 600). MC access token is valid f
 | | CurseForge | Vanilla Launcher | mc-arm64 |
 |---|---|---|---|
 | ARM64 LWJGL | Redownloads x86_64 on every launch | Redownloads x86_64 on every launch | Uses 3.3.3 arm64 from a separate dir |
-| Auth | Encrypted tokens | Clears tokens on exit | OAuth device code with cached refresh token |
+| Auth | Encrypted tokens | Works, but redownloads LWJGL | OAuth device code with cached refresh token |
 | Performance | Rosetta (x86 emulation) | Rosetta | Native ARM64 |
 
 ## Requirements

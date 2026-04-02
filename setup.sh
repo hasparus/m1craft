@@ -87,18 +87,10 @@ cp "$SCRIPT_DIR/mc-auth.py" "$CF_BASE/mc-auth.py"
 cp "$SCRIPT_DIR/launch.sh" "$CF_BASE/mc-arm64-launch.sh"
 chmod +x "$CF_BASE/mc-arm64-launch.sh"
 
-# 5. Create desktop shortcut
-cat > "$HOME/Desktop/Isle of Berk.command" << 'SHORTCUT'
-#!/bin/bash
-exec ~/Documents/curseforge/minecraft/mc-arm64-launch.sh
-SHORTCUT
-chmod +x "$HOME/Desktop/Isle of Berk.command"
-
 echo ""
 echo "=== Done! ==="
 echo "Java:    $JAVA"
 echo "Natives: $NATIVES_DIR"
 echo "Launch:  $CF_BASE/mc-arm64-launch.sh"
-echo "         or double-click 'Isle of Berk.command' on Desktop"
 echo ""
 echo "First launch will open your browser for Microsoft login."
