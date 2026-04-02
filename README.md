@@ -2,77 +2,66 @@
 
 Run Minecraft Forge 1.18.2 natively on Apple Silicon — no Rosetta.
 
-CurseForge and the vanilla Minecraft Launcher ship x86_64 LWJGL 3.2.1 natives and redownload them on every launch. This repo replaces them with LWJGL 3.3.3 arm64 and handles Microsoft authentication via OAuth device code flow.
+> **You probably want [Prism Launcher](https://prismlauncher.org/) instead.** It handles ARM64 LWJGL and Microsoft auth out of the box. This repo exists for when you need CurseForge specifically — e.g. for modpacks with CurseForge-only mods that can't be exported to other launchers.
 
-## Quick start
+## The problem
 
-1. Install [CurseForge](https://www.curseforge.com/download/app) and the modpack (e.g. Isle of Berk)
-2. Clone and run setup:
-   ```bash
-   git clone git@github.com:hasparus/mc-arm64.git
-   cd mc-arm64
-   bash setup.sh
-   ```
-3. Launch:
-   ```bash
-   ~/Documents/curseforge/minecraft/mc-arm64-launch.sh
-   ```
+Forge 1.18.2 ships LWJGL 3.2.1, which has no arm64 macOS support. Both CurseForge and the vanilla Minecraft Launcher redownload the x86_64 libraries, so you're stuck on Rosetta emulation. This repo swaps in LWJGL 3.3.3 (which has arm64 natives) and launches Forge directly, bypassing both launchers.
 
-First launch opens your browser for Microsoft login. After that, auth is cached and refreshes automatically.
+## Setup
 
-## What it does
-
-### `setup.sh`
-- Installs [Zulu JDK 17 ARM64](https://www.azul.com/downloads/?version=java-17-lts&os=macos&architecture=arm-64-bit) if not present
-- Downloads LWJGL 3.3.3 Java JARs from Maven Central
-- Downloads and extracts LWJGL 3.3.3 arm64 native dylibs
-- Copies `launch.sh` and `mc-auth.py` into place
-
-### `launch.sh`
-- Finds Zulu 17 ARM
-- Authenticates via `mc-auth.py`
-- Builds the classpath with LWJGL 3.3.3 instead of 3.2.1
-- Points `-Dorg.lwjgl.librarypath` to the arm64 natives directory (which CurseForge doesn't touch)
-- Launches Forge via `BootstrapLauncher`
-
-### `mc-auth.py`
-Microsoft OAuth device code flow — no dependencies beyond Python 3 stdlib.
-
-```
-MS device code (login.live.com)
-  → Xbox Live token
-    → XSTS token
-      → Minecraft access token
-        → Player profile (UUID + username)
-```
-
-Tokens cached at `~/.mc-auth-cache.json` (chmod 600). MC access token is valid for 24 hours; the refresh token renews it automatically without opening the browser again.
-
-## Why not just use CurseForge / vanilla launcher?
-
-| | CurseForge | Vanilla Launcher | mc-arm64 |
-|---|---|---|---|
-| ARM64 LWJGL | Redownloads x86_64 on every launch | Redownloads x86_64 on every launch | Uses 3.3.3 arm64 from a separate dir |
-| Auth | Encrypted tokens | Works, but redownloads LWJGL | OAuth device code with cached refresh token |
-| Performance | Rosetta (x86 emulation) | Rosetta | Native ARM64 |
-
-## Requirements
-
+Prerequisites:
 - macOS on Apple Silicon (M1/M2/M3/M4)
-- Python 3 (comes with macOS / Homebrew)
-- CurseForge with the modpack installed
-- A Microsoft account that owns Minecraft
+- [CurseForge](https://www.curseforge.com/download/app) with the modpack installed
+- **Launch the modpack through CurseForge at least once** (so it downloads all the library JARs)
+- Python 3.6+
 
-## Configuration
-
-Set `CF_BASE` to override the CurseForge path:
 ```bash
-CF_BASE=~/Documents/curseforge/minecraft bash setup.sh
+git clone https://github.com/hasparus/mc-arm64.git
+cd mc-arm64
+bash setup.sh
 ```
 
-To change the instance, edit the `INSTANCE` variable in `launch.sh`.
+Setup will:
+- Install [Zulu JDK 17 ARM64](https://www.azul.com/downloads/?version=java-17-lts&os=macos&architecture=arm-64-bit) if not already present
+- Download LWJGL 3.3.3 JARs and arm64 native libraries from Maven Central
+- Copy the launch script and auth helper into your CurseForge directory
+
+## Usage
+
+```bash
+~/Documents/curseforge/minecraft/mc-arm64-launch.sh
+```
+
+First run opens your browser for Microsoft login. After that, the token refreshes automatically — no browser needed.
+
+For a different modpack instance:
+```bash
+INSTANCE="$HOME/Documents/curseforge/minecraft/Instances/Your Pack Name" \
+  ~/Documents/curseforge/minecraft/mc-arm64-launch.sh
+```
+
+## How it works
+
+**`setup.sh`** downloads LWJGL 3.3.3 JARs + arm64 `.dylib` files into a directory CurseForge doesn't manage, so they won't be overwritten.
+
+**`launch.sh`** builds a classpath with LWJGL 3.3.3 instead of 3.2.1, points `-Dorg.lwjgl.librarypath` at the arm64 natives, and launches Forge's `BootstrapLauncher`.
+
+**`mc-auth.py`** handles Microsoft authentication (device code flow via `login.live.com` → Xbox Live → XSTS → Minecraft). Zero dependencies beyond Python stdlib. Tokens cached at `~/.mc-auth-cache.json`.
+
+## Limitations
+
+- **Forge 1.18.2 only.** The classpath in `launch.sh` is pinned to Forge 40.3.0 / MC 1.18.2. Other Forge versions need different library versions.
+- **CurseForge Forge updates will break it.** If CurseForge updates Forge for your modpack, the library versions in `launch.sh` won't match. You'll need to update the script.
+- The default instance is "Isle of Berk (Claws of Berk)". Set the `INSTANCE` env var for other modpacks.
+- Window size (1024x768) and memory (-Xmx8G) are hardcoded in `launch.sh`. Edit as needed.
 
 ## Prior art
 
-- [m1-multimc-hack](https://github.com/yusefnapora/m1-multimc-hack) — archived, same LWJGL replacement approach for MultiMC
-- [MSMC](https://github.com/Hanro50/MSMC) — Node.js Microsoft auth library for Minecraft
+- [Prism Launcher](https://prismlauncher.org/) — the right answer for most people
+- [m1-multimc-hack](https://github.com/yusefnapora/m1-multimc-hack) — archived, same LWJGL replacement approach
+- [MSMC](https://github.com/Hanro50/MSMC) — Node.js Microsoft auth for Minecraft
+
+## License
+
+MIT

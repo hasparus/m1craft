@@ -52,7 +52,7 @@ else
     curl -sL "$MAVEN/$lib/$LWJGL_VER/$lib-$LWJGL_VER-natives-macos-arm64.jar" \
       -o "/tmp/lwjgl-arm64-setup/$lib-natives.jar"
   done
-  cd /tmp/lwjgl-arm64-setup
+  pushd /tmp/lwjgl-arm64-setup >/dev/null
   for jar in *.jar; do unzip -o "$jar" "*.dylib" >/dev/null 2>&1; done
 
   # Flat layout
@@ -77,6 +77,7 @@ else
     unzip -o "$JCOCOA_JAR" "libjcocoa.dylib" -d "$NATIVES_DIR/" >/dev/null
   fi
 
+  popd >/dev/null
   rm -rf /tmp/lwjgl-arm64-setup
   echo "[OK] ARM64 natives installed"
 fi
@@ -84,8 +85,12 @@ fi
 # 4. Copy launch files
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cp "$SCRIPT_DIR/mc-auth.py" "$CF_BASE/mc-auth.py"
-cp "$SCRIPT_DIR/launch.sh" "$CF_BASE/mc-arm64-launch.sh"
-chmod +x "$CF_BASE/mc-arm64-launch.sh"
+if [ -f "$CF_BASE/mc-arm64-launch.sh" ]; then
+  echo "[OK] launch script already exists (not overwriting — you may have local edits)"
+else
+  cp "$SCRIPT_DIR/launch.sh" "$CF_BASE/mc-arm64-launch.sh"
+  chmod +x "$CF_BASE/mc-arm64-launch.sh"
+fi
 
 echo ""
 echo "=== Done! ==="

@@ -1,22 +1,31 @@
 #!/usr/bin/env python3
-"""Minecraft Microsoft OAuth — device code flow with token caching."""
+"""Minecraft Microsoft OAuth — device code flow with token caching.
+
+Uses the official Minecraft launcher's Azure client ID (00000000402b5328)
+for the login.live.com device code flow. This is the same approach used by
+most third-party launchers (Prism, HMCL, etc).
+
+Tokens are cached at ~/.mc-auth-cache.json (chmod 600). The Minecraft access
+token is valid for ~24h; the refresh token renews it without opening a browser.
+"""
 import json, os, sys, time, webbrowser
 from urllib.request import Request, urlopen
 from urllib.parse import urlencode
 
 CACHE = os.path.expanduser("~/.mc-auth-cache.json")
-CLIENT_ID = "00000000402b5328"  # Official Minecraft launcher
+CLIENT_ID = "00000000402b5328"
+TIMEOUT = 15
 
 def post_form(url, data):
-    r = urlopen(Request(url, urlencode(data).encode(), {"Content-Type": "application/x-www-form-urlencoded"}))
+    r = urlopen(Request(url, urlencode(data).encode(), {"Content-Type": "application/x-www-form-urlencoded"}), timeout=TIMEOUT)
     return json.loads(r.read())
 
 def post_json(url, data):
-    r = urlopen(Request(url, json.dumps(data).encode(), {"Content-Type": "application/json", "Accept": "application/json"}))
+    r = urlopen(Request(url, json.dumps(data).encode(), {"Content-Type": "application/json", "Accept": "application/json"}), timeout=TIMEOUT)
     return json.loads(r.read())
 
 def get_json(url, headers):
-    r = urlopen(Request(url, headers=headers))
+    r = urlopen(Request(url, headers=headers), timeout=TIMEOUT)
     return json.loads(r.read())
 
 def ms_device_code_flow():
@@ -74,7 +83,6 @@ def ms_to_minecraft(ms_token):
         "RelyingParty": "http://auth.xboxlive.com", "TokenType": "JWT",
     })
     xbl_token = xbl["Token"]
-    uhs = xbl["DisplayClaims"]["xui"][0]["uhs"]
 
     xsts = post_json("https://xsts.auth.xboxlive.com/xsts/authorize", {
         "Properties": {"SandboxId": "RETAIL", "UserTokens": [xbl_token]},
@@ -95,10 +103,11 @@ def ms_to_minecraft(ms_token):
     return mc_token, prof["id"], prof["name"], expires_at
 
 def load_cache():
-    if os.path.exists(CACHE):
+    try:
         with open(CACHE) as f:
             return json.load(f)
-    return {}
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
 
 def save_cache(data):
     with open(CACHE, "w") as f:

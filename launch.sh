@@ -5,7 +5,14 @@ set -euo pipefail
 
 CF_BASE="${CF_BASE:-$HOME/Documents/curseforge/minecraft}"
 INSTALL="$CF_BASE/Install"
-INSTANCE="$CF_BASE/Instances/Isle of Berk (Claws of Berk)"
+INSTANCE="${INSTANCE:-$CF_BASE/Instances/Isle of Berk (Claws of Berk)}"
+
+if [ ! -d "$INSTANCE" ]; then
+  echo "ERROR: Instance not found: $INSTANCE"
+  echo "Set INSTANCE to your modpack path, e.g.:"
+  echo "  INSTANCE='$CF_BASE/Instances/Your Pack Name' $0"
+  exit 1
+fi
 ARM64_NATIVES="$INSTALL/natives/arm64"
 LWJGL33="$INSTALL/libraries/org/lwjgl"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -90,7 +97,9 @@ for lib in lwjgl lwjgl-jemalloc lwjgl-openal lwjgl-opengl lwjgl-glfw lwjgl-stb l
   CP="$CP:$LWJGL33/$lib/3.3.3/$lib-3.3.3.jar"
 done
 CP="$CP:$INSTALL/libraries/com/mojang/text2speech/1.12.4/text2speech-1.12.4.jar"
-CP="$CP:$INSTALL/libraries/ca/weblite/java-objc-bridge/1.0.0/java-objc-bridge-1.0.0.jar"
+# Use 1.1 to match the universal (arm64) libjcocoa.dylib extracted by setup.sh.
+# CurseForge ships 1.0.0 (x86 only) but 1.1 is already in the libraries dir.
+CP="$CP:$INSTALL/libraries/ca/weblite/java-objc-bridge/1.1/java-objc-bridge-1.1.jar"
 CP="$CP:$INSTALL/versions/forge-40.3.0/forge-40.3.0.jar"
 CP="${CP#:}"
 
