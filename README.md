@@ -17,7 +17,6 @@ CurseForge and the vanilla Minecraft Launcher ship x86_64 LWJGL 3.2.1 natives an
    ```bash
    ~/Documents/curseforge/minecraft/mc-arm64-launch.sh
    ```
-   Or double-click **Isle of Berk.command** on your Desktop.
 
 First launch opens your browser for Microsoft login. After that, auth is cached and refreshes automatically.
 
