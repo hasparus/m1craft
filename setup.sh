@@ -84,11 +84,13 @@ fi
 
 # 4. Copy launch files
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-for f in mc-auth.py launch.py resolve-classpath.py; do
-  cp "$SCRIPT_DIR/$f" "$CF_BASE/$f"
-done
-cp "$SCRIPT_DIR/launch.sh" "$CF_BASE/mc-arm64-launch.sh"
-chmod +x "$CF_BASE/mc-arm64-launch.sh"
+cp "$SCRIPT_DIR/mc-auth.py" "$CF_BASE/mc-auth.py"
+if [ -f "$CF_BASE/mc-arm64-launch.sh" ]; then
+  echo "[OK] launch script already exists (not overwriting — you may have local edits)"
+else
+  cp "$SCRIPT_DIR/launch.sh" "$CF_BASE/mc-arm64-launch.sh"
+  chmod +x "$CF_BASE/mc-arm64-launch.sh"
+fi
 
 echo ""
 echo "=== Done! ==="
