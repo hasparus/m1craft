@@ -2,10 +2,6 @@
 
 Run Minecraft Forge 1.18.2 natively on Apple Silicon — no Rosetta.
 
-> **You probably want [Prism Launcher](https://prismlauncher.org/) instead.** It handles ARM64 LWJGL and Microsoft auth out of the box. This repo exists for when you need CurseForge specifically — e.g. for modpacks with CurseForge-only mods that can't be exported to other launchers.
-
-## The problem
-
 Forge 1.18.2 ships LWJGL 3.2.1, which has no arm64 macOS support. Both CurseForge and the vanilla Minecraft Launcher redownload the x86_64 libraries, so you're stuck on Rosetta emulation. This repo swaps in LWJGL 3.3.3 (which has arm64 natives) and launches Forge directly, bypassing both launchers.
 
 ## Setup
@@ -58,7 +54,6 @@ INSTANCE="$HOME/Documents/curseforge/minecraft/Instances/Your Pack Name" \
 
 ## Prior art
 
-- [Prism Launcher](https://prismlauncher.org/) — the right answer for most people
 - [m1-multimc-hack](https://github.com/yusefnapora/m1-multimc-hack) — archived, same LWJGL replacement approach
 - [MSMC](https://github.com/Hanro50/MSMC) — Node.js Microsoft auth for Minecraft
 
