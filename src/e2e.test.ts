@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
+
+import { CF_BASE } from "./lib/paths.js";
 
 const MAIN = join(import.meta.dir, "main.ts");
 
@@ -52,7 +55,8 @@ describe("e2e", () => {
     ).toBe(true);
   });
 
-  test("resolve prints JSON classpath", async () => {
+  const hasCurseForge = existsSync(join(CF_BASE, "Install"));
+  test.skipIf(!hasCurseForge)("resolve prints JSON classpath", async () => {
     const { exitCode, stdout } = await run("resolve");
     expect(exitCode).toBe(0);
     const config = JSON.parse(stdout);
