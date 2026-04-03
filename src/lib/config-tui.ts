@@ -86,6 +86,43 @@ export async function configTui(): Promise<void> {
   });
   root.add(instanceSelect);
 
+  // -- Java version --
+  const javaLabel = new TextRenderable(renderer, {
+    id: "java-label",
+    content: "Java version:",
+    height: 1,
+  });
+  root.add(javaLabel);
+
+  const javaVersionOptions: SelectOption[] = [
+    { name: "Java 25", description: "Minecraft 26.1+, latest vanilla" },
+    { name: "Java 21", description: "Forge 1.20.5+, NeoForge, newer Fabric" },
+    { name: "Java 17", description: "Forge 1.18–1.20.4, most modpacks" },
+    { name: "Java 8",  description: "Legacy modpacks (MC 1.16 and below)" },
+  ];
+  const javaVersionValues = ["25", "21", "17", "8"];
+  const defaultJavaIdx = javaVersionValues.indexOf("17");
+  const currentJavaIdx = javaVersionValues.indexOf(config.javaVersion ?? "17");
+
+  const javaSelect = new SelectRenderable(renderer, {
+    id: "java-select",
+    options: javaVersionOptions,
+    selectedIndex: currentJavaIdx >= 0 ? currentJavaIdx : defaultJavaIdx,
+    wrapSelection: true,
+    showDescription: true,
+    height: Math.min(javaVersionOptions.length * 2 + 1, 8),
+    width: "100%",
+    selectedBackgroundColor: "#2563eb",
+    selectedTextColor: "#ffffff",
+    focusedBackgroundColor: "#1e293b",
+    focusedTextColor: "#e2e8f0",
+    backgroundColor: "#0f172a",
+    textColor: "#94a3b8",
+    descriptionColor: "#475569",
+    selectedDescriptionColor: "#93c5fd",
+  });
+  root.add(javaSelect);
+
   // -- Memory inputs --
   const memRow = new BoxRenderable(renderer, {
     id: "mem-row",
@@ -199,7 +236,7 @@ export async function configTui(): Promise<void> {
   root.add(statusBar);
 
   // -- Focus management --
-  const focusables = [instanceSelect, xmxInput, xmsInput, widthInput, heightInput];
+  const focusables = [instanceSelect, javaSelect, xmxInput, xmsInput, widthInput, heightInput];
 
   function focusField(index: number) {
     currentField = ((index % focusables.length) + focusables.length) % focusables.length;
@@ -215,8 +252,10 @@ export async function configTui(): Promise<void> {
     } else if (key.name === "s" && key.ctrl) {
       // Save
       const selected = instanceSelect.getSelectedOption();
+      const javaIdx = javaSelect.getSelectedIndex();
       const newConfig: UserConfig = {
         defaultInstance: selected?.name,
+        javaVersion: javaVersionValues[javaIdx] ?? "17",
         xmx: xmxInput.value || undefined,
         xms: xmsInput.value || undefined,
         width: parseInt(widthInput.value) || undefined,
@@ -231,18 +270,19 @@ export async function configTui(): Promise<void> {
   });
 
   // Enter on input fields advances to next field
+  // focusables: [instanceSelect(0), javaSelect(1), xmxInput(2), xmsInput(3), widthInput(4), heightInput(5)]
   for (const [i, input] of [xmxInput, xmsInput, widthInput, heightInput].entries()) {
     input.on("enter", () => {
-      // +1 because instance select is index 0
-      focusField(i + 2);
+      focusField(i + 3);
     });
   }
-
-  renderer.on("destroy", () => {
-    process.exit(0);
-  });
 
   renderer.root.add(root);
   renderer.start();
   focusField(0);
+
+  // Wait for the renderer to be destroyed (Ctrl+C or after save)
+  await new Promise<void>((resolve) => {
+    renderer.on("destroy", resolve);
+  });
 }

@@ -51,26 +51,19 @@ function formatError(err: unknown): string {
 }
 
 async function ensureSetup() {
+  const { loadConfig } = await import("./lib/config.js");
+  const config = await loadConfig();
+  const javaVersion = config.javaVersion ?? "17";
+
   const { checkSetup, runSetup } = await import("./lib/setup.js");
-  const status = await checkSetup();
+  const status = await checkSetup(javaVersion);
   if (status.javaFound && status.nativesFound && status.jarsFound) return;
-
-  const missing: string[] = [];
-  if (!status.javaFound) missing.push("Zulu JDK 17 ARM64");
-  if (!status.jarsFound) missing.push("LWJGL 3.3.3 JARs");
-  if (!status.nativesFound) missing.push("ARM64 native libraries");
-
-  console.error("");
-  console.error("  First-time setup — downloading:");
-  for (const m of missing) console.error(`    - ${m}`);
-  console.error("");
-
-  await runSetup();
+  await runSetup(javaVersion);
 }
 
 async function main() {
-  // Auto-setup on any command except help/--help
-  if (command !== "help" && !values.help) {
+  // Auto-setup on commands that need it (not help, setup itself, or --help)
+  if (command !== "help" && command !== "setup" && !values.help) {
     await ensureSetup();
   }
 

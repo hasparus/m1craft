@@ -15,6 +15,7 @@
   "dependencies": {
     "@opentui/core": "^0.1.96",
     "arktype": "^2.2.0",
-    "errore": "^0.14.1"
+    "errore": "^0.14.1",
+    "opentui-spinner": "^0.0.6"
   }
 }

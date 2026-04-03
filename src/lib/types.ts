@@ -78,6 +78,7 @@ export interface MavenCoordinate {
 // User config (~/.mc-arm64.json)
 export interface UserConfig {
   defaultInstance?: string;
+  javaVersion?: string; // "17", "21", "8"
   xmx?: string; // e.g. "8192m"
   xms?: string;
   width?: number;

@@ -1,22 +1,23 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { readdir } from "node:fs/promises";
 import { authenticate } from "./auth.js";
 import { resolveClasspath } from "./resolve.js";
 import { loadConfig } from "./config.js";
 import { CF_BASE, INSTALL, NATIVES_DIR, DEFAULT_INSTANCE, LWJGL_VERSION } from "./paths.js";
 import { LaunchError } from "./errors.js";
 
-async function findJava(): Promise<string> {
+async function findJava(javaVersion = "17"): Promise<string> {
   const javaDir = join(homedir(), "Library/Java");
   let entries: string[];
   try {
-    entries = await Array.fromAsync(new Bun.Glob("zulu17.*-macosx_aarch64").scan(javaDir));
+    const all = await readdir(javaDir);
+    entries = all.filter((e) => e.startsWith(`zulu${javaVersion}`) && e.includes("macosx_aarch64")).sort();
   } catch {
     throw new LaunchError({ message: "~/Library/Java not found. Run 'mc-arm64 setup' first." });
   }
-  entries.sort();
-  const match = entries.at(-1); // latest version
-  if (!match) throw new LaunchError({ message: "Zulu 17 ARM not found. Run 'mc-arm64 setup' first." });
+  const match = entries.at(-1);
+  if (!match) throw new LaunchError({ message: `Zulu ${javaVersion} ARM not found. Run 'mc-arm64 setup' first.` });
   return join(javaDir, match, "bin/java");
 }
 
@@ -42,7 +43,8 @@ export async function launch(opts: { instance?: string; dryRun?: boolean }) {
     ?? (config.defaultInstance
       ? join(CF_BASE, "Instances", config.defaultInstance)
       : DEFAULT_INSTANCE);
-  const java = await findJava();
+  const javaVersion = config.javaVersion ?? "17";
+  const java = await findJava(javaVersion);
   const auth = await authenticate();
 
   console.error(`Auth: ${auth.username} (${auth.uuid.slice(0, 8)}...)`);
