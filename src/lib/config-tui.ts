@@ -11,7 +11,6 @@ import { join } from "node:path";
 
 import type { UserConfig } from "./types.js";
 
-import { printError } from "./cli.js";
 import { discoverInstances, loadConfig, saveConfig } from "./config.js";
 import { CF_BASE, CONFIG_PATH } from "./paths.js";
 
@@ -111,7 +110,7 @@ export async function configTui(): Promise<void> {
   const instanceNames = await discoverInstances();
 
   if (instanceNames.length === 0) {
-    printError("No CurseForge instances found. Launch a modpack through CurseForge first.");
+    console.error("No CurseForge instances found. Launch a modpack through CurseForge first.");
     return;
   }
 

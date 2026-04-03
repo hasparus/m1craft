@@ -4,7 +4,6 @@ import { chmod } from "node:fs/promises";
 
 import type { AuthCache, AuthResult } from "./types.js";
 
-import { print, printError } from "./cli.js";
 import { AuthError, HttpError, ValidationError, XboxError } from "./errors.js";
 import { AUTH_CACHE_PATH } from "./paths.js";
 
@@ -125,7 +124,7 @@ function promptDeviceLogin(userCode: string, verificationUri: string) {
     "  └─────────────────────────────────────────────┘",
     "",
   ];
-  for (const line of box) printError(line);
+  for (const line of box) console.error(line);
   Bun.spawn(["open", `${verificationUri}?otc=${userCode}`]);
 }
 
@@ -346,10 +345,10 @@ export async function authenticate(): Promise<AuthResult> {
   // Try refresh, fall back to device code
   let msResult: [string, string] | AuthError;
   if (cache.refresh_token) {
-    printError("Refreshing login...");
+    console.error("Refreshing login...");
     msResult = await refreshMsToken(cache.refresh_token);
     if (isError(msResult)) {
-      printError("Session expired, need to sign in again.");
+      console.error("Session expired, need to sign in again.");
       msResult = await deviceCodeFlow();
     }
   } else {
@@ -378,15 +377,15 @@ export async function authCommand(opts: { check?: boolean }) {
     const cache = await loadCache();
     if (cache.access_token && (cache.expires_at ?? 0) > Date.now() / 1000 + 60) {
       const expires = new Date((cache.expires_at ?? 0) * 1000).toISOString();
-      print(`Token valid. ${cache.username} (${cache.uuid?.slice(0, 8)}...) expires ${expires}`);
+      console.log(`Token valid. ${cache.username} (${cache.uuid?.slice(0, 8)}...) expires ${expires}`);
     } else if (cache.refresh_token) {
-      print("Token expired but refresh token available.");
+      console.log("Token expired but refresh token available.");
     } else {
-      print("No cached auth. Run 'mc-arm64 auth' to log in.");
+      console.log("No cached auth. Run 'mc-arm64 auth' to log in.");
     }
     return;
   }
 
   const result = await authenticate();
-  print(`Authenticated as ${result.username} (${result.uuid})`);
+  console.log(`Authenticated as ${result.username} (${result.uuid})`);
 }

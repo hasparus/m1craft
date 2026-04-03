@@ -3,7 +3,8 @@ import { join } from "node:path";
 
 import { findZuluDirs, JAVA_DIR } from "./java.js";
 
-const hasZulu17 = (await findZuluDirs("17")).length > 0;
+const zulu17Dirs = await findZuluDirs("17");
+const hasZulu17 = zulu17Dirs.length > 0;
 
 describe("findZuluDirs", () => {
   test.skipIf(!hasZulu17)("finds installed Zulu 17 directories", async () => {
