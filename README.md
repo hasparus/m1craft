@@ -1,4 +1,5 @@
-# mc-arm64
+# m1craft
+_should be called mc-arm64, but it's not funny_
 
 Run Minecraft Forge 1.18.2 natively on Apple Silicon — no Rosetta.
 
