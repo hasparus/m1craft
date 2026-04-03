@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 
 import { CF_BASE } from "./lib/paths.js";
@@ -66,7 +67,23 @@ describe("e2e", () => {
     expect(config.mcVersion).toBeString();
   });
 
-  // launch --dry-run can't be tested in piped context because ensureSetup
-  // opens an opentui TUI that blocks on non-interactive stdin.
-  // Test the resolve command instead, which exercises the same classpath logic.
+  const hasAuth = existsSync(join(homedir(), ".mc-auth-cache.json"));
+  test.skipIf(!hasCurseForge || !hasAuth)("launch --dry-run prints JVM command", async () => {
+    const { exitCode, stdout } = await run("launch", "--dry-run");
+    expect(exitCode).toBe(0);
+
+    // Should contain java binary path
+    expect(stdout).toContain("bin/java");
+    // Should contain key JVM flags
+    expect(stdout).toContain("-XstartOnFirstThread");
+    expect(stdout).toContain("-Dminecraft.launcher.brand=mc-arm64");
+    // Classpath
+    expect(stdout).toContain("-cp");
+    // Game args
+    expect(stdout).toContain("--username");
+    expect(stdout).toContain("--gameDir");
+    // Access token should be redacted
+    expect(stdout).toContain("<REDACTED>");
+    expect(stdout).not.toMatch(/--accessToken\s+(?!<REDACTED>)\S/);
+  });
 });

@@ -114,6 +114,14 @@ interface StepUI {
   setStatus(icon: string, label: string): void;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-function -- intentional no-op for headless mode
+const NOOP_UI: StepUI = { clearProgress() {}, setProgress() {}, setStatus() {} };
+
+/** Install Zulu JDK if not present. Returns path to java binary. */
+export async function installJava(javaVersion = DEFAULT_JAVA_VERSION): Promise<string> {
+  return stepJava(NOOP_UI, javaVersion);
+}
+
 async function stepJava(ui: StepUI, javaVersion: string): Promise<string> {
   const label = `Zulu JDK ${javaVersion}`;
   const existing = await findZuluJavaBin(javaVersion);
