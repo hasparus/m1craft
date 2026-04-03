@@ -128,7 +128,7 @@ function promptDeviceLogin(userCode: string, verificationUri: string) {
   Bun.spawn(["open", `${verificationUri}?otc=${userCode}`]);
 }
 
-async function deviceCodeFlow(): Promise<
+async function deviceCodeFlow(callbacks?: AuthCallbacks): Promise<
   [msToken: string, refreshToken: string] | AuthError
 > {
   const res = await postForm(MS_CONNECT_URL, {
@@ -154,7 +154,11 @@ async function deviceCodeFlow(): Promise<
     });
   }
 
-  promptDeviceLogin(d.user_code, d.verification_uri);
+  if (callbacks?.onDeviceCode) {
+    callbacks.onDeviceCode(d.user_code, d.verification_uri);
+  } else {
+    promptDeviceLogin(d.user_code, d.verification_uri);
+  }
 
   for (let attempt = 0; attempt < MAX_POLL_ITERATIONS; attempt++) {
     await sleep(d.interval * 1000);
@@ -334,28 +338,38 @@ async function saveCache(data: AuthCache) {
 
 // -- Public API --
 
-export async function authenticate(): Promise<AuthResult> {
+export interface AuthCallbacks {
+  onDeviceCode?: (userCode: string, verificationUri: string) => void;
+  onStatus?: (status: "cached" | "device-code" | "done" | "refreshing" | "xbox", detail?: string) => void;
+}
+
+export async function authenticate(callbacks?: AuthCallbacks): Promise<AuthResult> {
   const cache = await loadCache();
 
   // Try cached token
   if (cache.access_token && (cache.expires_at ?? 0) > Date.now() / 1000 + 60) {
+    callbacks?.onStatus?.("cached", cache.username);
     return { accessToken: cache.access_token, username: cache.username!, uuid: cache.uuid! };
   }
 
   // Try refresh, fall back to device code
   let msResult: [string, string] | AuthError;
   if (cache.refresh_token) {
-    console.error("Refreshing login...");
+    callbacks?.onStatus?.("refreshing");
+    if (!callbacks) console.error("Refreshing login...");
     msResult = await refreshMsToken(cache.refresh_token);
     if (isError(msResult)) {
-      console.error("Session expired, need to sign in again.");
-      msResult = await deviceCodeFlow();
+      if (!callbacks) console.error("Session expired, need to sign in again.");
+      callbacks?.onStatus?.("device-code");
+      msResult = await deviceCodeFlow(callbacks);
     }
   } else {
-    msResult = await deviceCodeFlow();
+    callbacks?.onStatus?.("device-code");
+    msResult = await deviceCodeFlow(callbacks);
   }
   if (isError(msResult)) throw msResult;
 
+  callbacks?.onStatus?.("xbox");
   const [msToken, refresh] = msResult;
   const mcResult = await msToMinecraft(msToken);
   if (isError(mcResult)) throw mcResult;
@@ -369,6 +383,7 @@ export async function authenticate(): Promise<AuthResult> {
     uuid,
   });
 
+  callbacks?.onStatus?.("done", username);
   return { accessToken: mcToken, username, uuid };
 }
 

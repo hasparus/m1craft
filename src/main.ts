@@ -98,11 +98,13 @@ try {
         }
       }
 
-      const { launch } = await import("./lib/launch.js");
-      await launch({
-        dryRun: values["dry-run"],
-        instance: values.instance,
-      });
+      if (values["dry-run"]) {
+        const { launch } = await import("./lib/launch.js");
+        await launch({ dryRun: true, instance: values.instance });
+      } else {
+        const { launchWithTui } = await import("./lib/launch-tui.js");
+        await launchWithTui({ instance: values.instance });
+      }
       break;
     }
     case "resolve": {

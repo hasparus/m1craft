@@ -1,5 +1,7 @@
 import { join } from "node:path";
 
+import type { AuthCallbacks } from "./auth.js";
+
 import { authenticate } from "./auth.js";
 import { loadConfig } from "./config.js";
 import { LaunchError } from "./errors.js";
@@ -7,7 +9,15 @@ import { findZuluJavaBin } from "./java.js";
 import { CF_BASE, DEFAULT_INSTANCE, INSTALL, LWJGL_VERSION, NATIVES_DIR } from "./paths.js";
 import { resolveClasspath } from "./resolve.js";
 
-export async function launch(opts: { dryRun?: boolean; instance?: string; }) {
+export type LaunchStep = "auth" | "classpath" | "config" | "java" | "launch";
+
+export interface LaunchCallbacks {
+  auth?: AuthCallbacks;
+  onStep?: (step: LaunchStep, detail?: string) => void;
+}
+
+export async function launch(opts: { dryRun?: boolean; instance?: string; }, callbacks?: LaunchCallbacks) {
+  callbacks?.onStep?.("config");
   const config = await loadConfig();
 
   const instanceDir = opts.instance
@@ -15,16 +25,20 @@ export async function launch(opts: { dryRun?: boolean; instance?: string; }) {
       ? join(CF_BASE, "Instances", config.defaultInstance)
       : DEFAULT_INSTANCE);
 
+  callbacks?.onStep?.("java");
   const javaVersion = config.javaVersion ?? "17";
   const java = await findZuluJavaBin(javaVersion);
   if (!java) throw new LaunchError({ message: `Zulu ${javaVersion} ARM not found. Run 'mc-arm64 setup' first.` });
 
-  const auth = await authenticate();
-  console.error(`Auth: ${auth.username} (${auth.uuid.slice(0, 8)}...)`);
+  callbacks?.onStep?.("auth");
+  const auth = await authenticate(callbacks?.auth);
+  if (!callbacks) console.error(`Auth: ${auth.username} (${auth.uuid.slice(0, 8)}...)`);
 
+  callbacks?.onStep?.("classpath");
   const lwjglVersion = config.lwjglVersion ?? LWJGL_VERSION;
   const resolved = await resolveClasspath(instanceDir, INSTALL, lwjglVersion);
-  console.error(`Launching ${resolved.forgeName}...`);
+  callbacks?.onStep?.("launch", resolved.forgeName);
+  if (!callbacks) console.error(`Launching ${resolved.forgeName}...`);
 
   const xmx = config.xmx ?? "8192m";
   const xms = config.xms ?? "256m";
