@@ -3,11 +3,12 @@ import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 
 import { authenticate } from "./auth.js";
-import { AUTH_CACHE_PATH } from "./paths.js";
+import { getAuthCachePath } from "./paths.js";
 
 const MOCK_MC_TOKEN = "mock-mc-access-token";
 const MOCK_UUID = "abcdef1234567890abcdef1234567890";
 const MOCK_USERNAME = "TestPlayer";
+const TEST_AUTH_CACHE_PATH = "/tmp/mc-arm64-auth-cache.json";
 
 // Track which endpoints get called
 let callLog: string[] = [];
@@ -71,15 +72,36 @@ const handlers = [
 
 const server = setupServer(...handlers);
 
-beforeAll(() => { server.listen({ onUnhandledRequest: "error" }); });
-afterEach(() => { server.resetHandlers(); });
+beforeAll(() => {
+  process.env["MC_ARM64_AUTH_CACHE_PATH"] = TEST_AUTH_CACHE_PATH;
+  server.listen({ onUnhandledRequest: "error" });
+});
+afterEach(async () => {
+  callLog = [];
+  server.resetHandlers();
+  await clearCache();
+});
 afterAll(async () => {
   server.close();
-  try { await Bun.file(AUTH_CACHE_PATH).unlink(); } catch { /* ok */ }
+  delete process.env["MC_ARM64_AUTH_CACHE_PATH"];
+  try { await Bun.file(TEST_AUTH_CACHE_PATH).unlink(); } catch { /* ok */ }
 });
 
 async function clearCache() {
-  try { await Bun.file(AUTH_CACHE_PATH).unlink(); } catch { /* ok */ }
+  try { await Bun.file(getAuthCachePath()).unlink(); } catch { /* ok */ }
+}
+
+async function seedCache() {
+  await Bun.write(
+    getAuthCachePath(),
+    JSON.stringify({
+      access_token: MOCK_MC_TOKEN,
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      refresh_token: "mock-refresh-token",
+      username: MOCK_USERNAME,
+      uuid: MOCK_UUID,
+    }),
+  );
 }
 
 const noopCallbacks = {
@@ -99,7 +121,9 @@ describe("authenticate", () => {
     expect(result.uuid).toBe(MOCK_UUID);
   });
 
-  test("device code flow hits all 6 endpoints in order", () => {
+  test("device code flow hits all 6 endpoints in order", async () => {
+    await authenticate(noopCallbacks);
+
     expect(callLog).toEqual([
       "POST msConnect",
       "POST msToken (device)",
@@ -111,7 +135,7 @@ describe("authenticate", () => {
   });
 
   test("cached token is returned without network calls", async () => {
-    // Previous test saved a cache
+    await seedCache();
     callLog = [];
     const result = await authenticate(noopCallbacks);
 

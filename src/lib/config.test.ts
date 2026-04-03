@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 
 import type { UserConfig } from "./types.js";
 
-import { loadConfig, saveConfig } from "./config.js";
+import { loadConfig, loadJavaVersion, saveConfig } from "./config.js";
 
 const TEST_PATH = "/tmp/mc-arm64-test-config.json";
 
@@ -34,5 +34,14 @@ describe("config", () => {
     const loaded = await loadConfig(TEST_PATH);
 
     expect(loaded).toEqual(original);
+  });
+
+  test("loadJavaVersion defaults to 17", async () => {
+    expect(await loadJavaVersion("/tmp/mc-arm64-nonexistent-java.json")).toBe("17");
+  });
+
+  test("loadJavaVersion reads configured version", async () => {
+    await Bun.write(TEST_PATH, JSON.stringify({ javaVersion: "21" }));
+    expect(await loadJavaVersion(TEST_PATH)).toBe("21");
   });
 });

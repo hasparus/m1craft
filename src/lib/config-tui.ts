@@ -12,7 +12,7 @@ import { join } from "node:path";
 import type { UserConfig } from "./types.js";
 
 import { discoverInstances, loadConfig, saveConfig } from "./config.js";
-import { CF_BASE, CONFIG_PATH } from "./paths.js";
+import { CF_BASE, getConfigPath } from "./paths.js";
 
 const SELECT_STYLE = {
   backgroundColor: "#0f172a",
@@ -175,7 +175,7 @@ export async function configTui(): Promise<void> {
         xmx: xmxInput!.value || undefined,
       };
       await saveConfig(newConfig);
-      statusBar.content = `Saved to ${CONFIG_PATH}`;
+      statusBar.content = `Saved to ${getConfigPath()}`;
       setTimeout(() => { renderer.destroy(); }, 800);
     }
   });

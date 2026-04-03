@@ -2,9 +2,9 @@ import { join } from "node:path";
 
 import type { UserConfig } from "./types.js";
 
-import { CF_BASE, CONFIG_PATH } from "./paths.js";
+import { CF_BASE, getConfigPath } from "./paths.js";
 
-export async function loadConfig(path = CONFIG_PATH): Promise<UserConfig> {
+export async function loadConfig(path = getConfigPath()): Promise<UserConfig> {
   try {
     return await Bun.file(path).json();
   } catch {
@@ -12,8 +12,13 @@ export async function loadConfig(path = CONFIG_PATH): Promise<UserConfig> {
   }
 }
 
-export async function saveConfig(config: UserConfig, path = CONFIG_PATH): Promise<void> {
+export async function saveConfig(config: UserConfig, path = getConfigPath()): Promise<void> {
   await Bun.write(path, JSON.stringify(config, null, 2) + "\n");
+}
+
+export async function loadJavaVersion(path = getConfigPath()): Promise<string> {
+  const config = await loadConfig(path);
+  return config.javaVersion ?? "17";
 }
 
 export async function discoverInstances(): Promise<string[]> {

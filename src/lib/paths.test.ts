@@ -2,7 +2,16 @@ import { describe, expect, test } from "bun:test";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import { AUTH_CACHE_PATH, CF_BASE, CONFIG_PATH, INSTALL, LWJGL_VERSION, NATIVES_DIR } from "./paths.js";
+import {
+  AUTH_CACHE_PATH,
+  CF_BASE,
+  CONFIG_PATH,
+  getAuthCachePath,
+  getConfigPath,
+  INSTALL,
+  LWJGL_VERSION,
+  NATIVES_DIR,
+} from "./paths.js";
 
 const home = homedir();
 
@@ -25,8 +34,20 @@ describe("paths", () => {
     expect(AUTH_CACHE_PATH).toBe(join(home, ".mc-auth-cache.json"));
   });
 
+  test("getAuthCachePath respects env override", () => {
+    process.env["MC_ARM64_AUTH_CACHE_PATH"] = "/tmp/auth-cache.json";
+    expect(getAuthCachePath()).toBe("/tmp/auth-cache.json");
+    delete process.env["MC_ARM64_AUTH_CACHE_PATH"];
+  });
+
   test("CONFIG_PATH is in home dir", () => {
     expect(CONFIG_PATH).toBe(join(home, ".mc-arm64.json"));
+  });
+
+  test("getConfigPath respects env override", () => {
+    process.env["MC_ARM64_CONFIG_PATH"] = "/tmp/config.json";
+    expect(getConfigPath()).toBe("/tmp/config.json");
+    delete process.env["MC_ARM64_CONFIG_PATH"];
   });
 
   test("LWJGL_VERSION is a valid semver", () => {

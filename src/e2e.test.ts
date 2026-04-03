@@ -1,9 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
 
-import { CF_BASE } from "./lib/paths.js";
+import { CF_BASE, getAuthCachePath } from "./lib/paths.js";
 
 const MAIN = join(import.meta.dir, "main.ts");
 
@@ -67,7 +66,7 @@ describe("e2e", () => {
     expect(config.mcVersion).toBeString();
   });
 
-  const hasAuth = existsSync(join(homedir(), ".mc-auth-cache.json"));
+  const hasAuth = existsSync(getAuthCachePath());
   test.skipIf(!hasCurseForge || !hasAuth)("launch --dry-run prints JVM command", async () => {
     const { exitCode, stdout } = await run("launch", "--dry-run");
     expect(exitCode).toBe(0);

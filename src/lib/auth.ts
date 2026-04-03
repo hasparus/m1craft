@@ -5,7 +5,7 @@ import { chmod } from "node:fs/promises";
 import type { AuthCache, AuthResult } from "./types.js";
 
 import { AuthError, HttpError, ValidationError, XboxError } from "./errors.js";
-import { AUTH_CACHE_PATH } from "./paths.js";
+import { getAuthCachePath } from "./paths.js";
 
 const CLIENT_ID = "00000000402b5328";
 const TIMEOUT = 15_000;
@@ -324,16 +324,18 @@ async function msToMinecraft(msToken: string): Promise<
 // -- Cache --
 
 async function loadCache(): Promise<Partial<AuthCache>> {
+  const cachePath = getAuthCachePath();
   try {
-    return await Bun.file(AUTH_CACHE_PATH).json();
+    return await Bun.file(cachePath).json();
   } catch {
     return {};
   }
 }
 
 async function saveCache(data: AuthCache) {
-  await Bun.write(AUTH_CACHE_PATH, JSON.stringify(data));
-  await chmod(AUTH_CACHE_PATH, 0o600);
+  const cachePath = getAuthCachePath();
+  await Bun.write(cachePath, JSON.stringify(data));
+  await chmod(cachePath, 0o600);
 }
 
 // -- Public API --

@@ -52,9 +52,8 @@ function formatError(error: unknown): string {
 }
 
 async function ensureSetup() {
-  const { loadConfig } = await import("./lib/config.js");
-  const config = await loadConfig();
-  const javaVersion = config.javaVersion ?? "17";
+  const { loadJavaVersion } = await import("./lib/config.js");
+  const javaVersion = await loadJavaVersion();
 
   const { checkSetup, runSetup } = await import("./lib/setup.js");
   const status = await checkSetup(javaVersion);
@@ -113,8 +112,9 @@ try {
       break;
     }
     case "setup": {
+      const { loadJavaVersion } = await import("./lib/config.js");
       const { runSetup } = await import("./lib/setup.js");
-      await runSetup();
+      await runSetup(await loadJavaVersion());
       break;
     }
     default:
