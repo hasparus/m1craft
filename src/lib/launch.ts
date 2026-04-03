@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { authenticate } from "./auth.js";
 import { resolveClasspath } from "./resolve.js";
 import { loadConfig } from "./config.js";
-import { findJavaBinary } from "./java.js";
+import { findZuluDirs, JAVA_DIR } from "./java.js";
 import { CF_BASE, INSTALL, NATIVES_DIR, DEFAULT_INSTANCE, LWJGL_VERSION } from "./paths.js";
 import { LaunchError } from "./errors.js";
 
@@ -13,16 +13,18 @@ export async function launch(opts: { instance?: string; dryRun?: boolean }) {
     ?? (config.defaultInstance
       ? join(CF_BASE, "Instances", config.defaultInstance)
       : DEFAULT_INSTANCE);
-  const javaVersion = config.javaVersion ?? "17";
-  const java = await findJavaBinary(javaVersion);
-  if (!java) throw new LaunchError({ message: `Zulu ${javaVersion} ARM not found. Run 'mc-arm64 setup' first.` });
-  const auth = await authenticate();
 
+  const javaVersion = config.javaVersion ?? "17";
+  const zuluDirs = await findZuluDirs(javaVersion);
+  const zuluDir = zuluDirs.at(-1);
+  if (!zuluDir) throw new LaunchError({ message: `Zulu ${javaVersion} ARM not found. Run 'mc-arm64 setup' first.` });
+  const java = join(JAVA_DIR, zuluDir, "bin/java");
+
+  const auth = await authenticate();
   console.error(`Auth: ${auth.username} (${auth.uuid.slice(0, 8)}...)`);
 
   const lwjglVersion = config.lwjglVersion ?? LWJGL_VERSION;
   const resolved = await resolveClasspath(instanceDir, INSTALL, lwjglVersion);
-
   console.error(`Launching ${resolved.forgeName}...`);
 
   const xmx = config.xmx ?? "8192m";
@@ -73,9 +75,11 @@ export async function launch(opts: { instance?: string; dryRun?: boolean }) {
     return;
   }
 
+  // Spawn Java detached and exit — don't hog RAM while MC runs
   const proc = Bun.spawn(cmd, {
     cwd: instanceDir,
     stdio: ["inherit", "inherit", "inherit"],
   });
-  process.exit(await proc.exited);
+  proc.unref();
+  process.exit(0);
 }
