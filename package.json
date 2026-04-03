@@ -4,10 +4,13 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "bun build src/main.ts --compile --minify --outfile mc-arm64"
+    "build": "bun build src/main.ts --compile --minify --outfile mc-arm64",
+    "lint": "eslint src/"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@hasparus/eslint-config": "^2.1.1",
+    "@types/bun": "latest",
+    "eslint": "^9"
   },
   "peerDependencies": {
     "typescript": "^5"

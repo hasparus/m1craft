@@ -1,99 +1,99 @@
 // Auth
 export interface AuthCache {
-  refresh_token: string;
   access_token: string;
-  uuid: string;
-  username: string;
   expires_at: number; // Unix seconds
+  refresh_token: string;
+  username: string;
+  uuid: string;
 }
 
 export interface AuthResult {
   accessToken: string;
-  uuid: string;
   username: string;
+  uuid: string;
 }
 
 // Mojang version manifest
 export interface MojangLibraryRule {
   action: "allow" | "disallow";
-  os?: { name?: string; version?: string; arch?: string };
+  os?: { arch?: string; name?: string; version?: string; };
 }
 
 export interface MojangLibraryDownload {
   path: string;
-  url: string;
   sha1: string;
   size: number;
+  url: string;
 }
 
 export interface MojangLibrary {
-  name: string; // Maven coordinate: "group:artifact:version"
   downloads?: {
     artifact?: MojangLibraryDownload;
     classifiers?: Record<string, MojangLibraryDownload>;
   };
-  rules?: MojangLibraryRule[];
+  name: string; // Maven coordinate: "group:artifact:version"
   natives?: Record<string, string>;
+  rules?: MojangLibraryRule[];
 }
 
 /** A conditional argument entry in the Mojang version JSON format. */
 export interface ConditionalArgument {
   rules: MojangLibraryRule[];
-  value: string | string[];
+  value: string[] | string;
 }
 
 /** An argument in the Mojang version JSON — either a plain string or a conditional entry with rules. */
-export type VersionArgument = string | ConditionalArgument;
+export type VersionArgument = ConditionalArgument | string;
 
 export interface VersionJson {
+  arguments?: {
+    game?: VersionArgument[];
+    jvm?: VersionArgument[];
+  };
+  assetIndex?: { id: string };
+  assets?: string;
   id: string;
   inheritsFrom?: string;
-  mainClass: string;
   libraries: MojangLibrary[];
-  arguments?: {
-    jvm?: VersionArgument[];
-    game?: VersionArgument[];
-  };
-  assets?: string;
-  assetIndex?: { id: string };
+  mainClass: string;
 }
 
 export interface CurseForgeInstance {
-  gameVersion: string;
   baseModLoader: {
-    name: string;
     forgeVersion: string;
+    name: string;
     type: number;
   };
+  gameVersion: string;
 }
 
 // Maven coordinate
 export interface MavenCoordinate {
-  group: string;
   artifact: string;
-  version: string;
   classifier?: string;
+  group: string;
+  version: string;
 }
 
 // User config (~/.mc-arm64.json)
 export interface UserConfig {
   defaultInstance?: string;
-  javaVersion?: string; // "17", "21", "8"
-  xmx?: string; // e.g. "8192m"
-  xms?: string;
-  width?: number;
   height?: number;
+  javaVersion?: string; // "17", "21", "8"
   lwjglVersion?: string;
+  width?: number;
+  xms?: string;
+  xmx?: string; // e.g. "8192m"
 }
 
 // Resolved launch config
 export interface LaunchConfig {
-  classpath: string[];
-  modulePath: string[];
-  jvmArgs: string[];
-  gameArgs: string[];
-  mainClass: string;
   assetIndex: string;
+  classpath: string[];
   forgeName: string;
+  gameArgs: string[];
+  jvmArgs: string[];
+  mainClass: string;
   mcVersion: string;
+  modulePath: string[];
 }

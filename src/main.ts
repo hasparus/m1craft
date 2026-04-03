@@ -1,12 +1,12 @@
-import { parseArgs } from "node:util";
 import { isTaggedError } from "errore";
+import { parseArgs } from "node:util";
 
 const { positionals, values } = parseArgs({
   allowPositionals: true,
   options: {
-    help: { type: "boolean", short: "h" },
-    "dry-run": { type: "boolean" },
     check: { type: "boolean" },
+    "dry-run": { type: "boolean" },
+    help: { short: "h", type: "boolean" },
     instance: { type: "string" },
   },
 });
@@ -30,14 +30,13 @@ Options:
   -h, --help          Show this help`);
 }
 
-function formatError(err: unknown): string {
-  if (isTaggedError(err)) {
-    const lines = [err.message];
+function formatError(error: unknown): string {
+  if (isTaggedError(error)) {
+    const lines = [error.message];
 
-    // Walk the cause chain for context
-    let cause = err.cause;
+    let { cause } = error;
     while (cause instanceof Error) {
-      if (isTaggedError(cause) && cause.message !== err.message) {
+      if (isTaggedError(cause) && cause.message !== error.message) {
         lines.push(`  caused by: ${cause.message}`);
       }
       cause = cause.cause;
@@ -46,8 +45,8 @@ function formatError(err: unknown): string {
     return lines.join("\n");
   }
 
-  if (err instanceof Error) return err.message;
-  return String(err);
+  if (error instanceof Error) return error.message;
+  return String(error);
 }
 
 async function ensureSetup() {
@@ -61,8 +60,18 @@ async function ensureSetup() {
   await runSetup(javaVersion);
 }
 
-async function main() {
+try {
   switch (command) {
+    case "auth": {
+      const { authCommand } = await import("./lib/auth.js");
+      await authCommand({ check: values.check });
+      break;
+    }
+    case "config": {
+      const { configTui } = await import("./lib/config-tui.js");
+      await configTui();
+      break;
+    }
     case "help":
       printHelp();
       break;
@@ -71,7 +80,6 @@ async function main() {
       if (values.help) { printHelp(); break; }
       await ensureSetup();
 
-      // First-launch wizard: if no config and no --instance, run config TUI
       if (!values.instance) {
         const { loadConfig } = await import("./lib/config.js");
         const config = await loadConfig();
@@ -90,24 +98,14 @@ async function main() {
 
       const { launch } = await import("./lib/launch.js");
       await launch({
-        instance: values.instance,
         dryRun: values["dry-run"],
+        instance: values.instance,
       });
-      break;
-    }
-    case "auth": {
-      const { authCommand } = await import("./lib/auth.js");
-      await authCommand({ check: values.check });
       break;
     }
     case "resolve": {
       const { resolveCommand } = await import("./lib/resolve.js");
       await resolveCommand({ instance: values.instance });
-      break;
-    }
-    case "config": {
-      const { configTui } = await import("./lib/config-tui.js");
-      await configTui();
       break;
     }
     case "setup": {
@@ -120,9 +118,7 @@ async function main() {
       printHelp();
       process.exit(1);
   }
-}
-
-main().catch((err) => {
-  console.error(`\n  Error: ${formatError(err)}\n`);
+} catch (error) {
+  console.error(`\n  Error: ${formatError(error)}\n`);
   process.exit(1);
-});
+}

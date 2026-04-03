@@ -1,12 +1,13 @@
 import { join } from "node:path";
-import { authenticate } from "./auth.js";
-import { resolveClasspath } from "./resolve.js";
-import { loadConfig } from "./config.js";
-import { findZuluDirs, JAVA_DIR } from "./java.js";
-import { CF_BASE, INSTALL, NATIVES_DIR, DEFAULT_INSTANCE, LWJGL_VERSION } from "./paths.js";
-import { LaunchError } from "./errors.js";
 
-export async function launch(opts: { instance?: string; dryRun?: boolean }) {
+import { authenticate } from "./auth.js";
+import { loadConfig } from "./config.js";
+import { LaunchError } from "./errors.js";
+import { findZuluJavaBin } from "./java.js";
+import { CF_BASE, DEFAULT_INSTANCE, INSTALL, LWJGL_VERSION, NATIVES_DIR } from "./paths.js";
+import { resolveClasspath } from "./resolve.js";
+
+export async function launch(opts: { dryRun?: boolean; instance?: string; }) {
   const config = await loadConfig();
 
   const instanceDir = opts.instance
@@ -15,10 +16,8 @@ export async function launch(opts: { instance?: string; dryRun?: boolean }) {
       : DEFAULT_INSTANCE);
 
   const javaVersion = config.javaVersion ?? "17";
-  const zuluDirs = await findZuluDirs(javaVersion);
-  const zuluDir = zuluDirs.at(-1);
-  if (!zuluDir) throw new LaunchError({ message: `Zulu ${javaVersion} ARM not found. Run 'mc-arm64 setup' first.` });
-  const java = join(JAVA_DIR, zuluDir, "bin/java");
+  const java = await findZuluJavaBin(javaVersion);
+  if (!java) throw new LaunchError({ message: `Zulu ${javaVersion} ARM not found. Run 'mc-arm64 setup' first.` });
 
   const auth = await authenticate();
   console.error(`Auth: ${auth.username} (${auth.uuid.slice(0, 8)}...)`);

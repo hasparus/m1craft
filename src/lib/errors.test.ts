@@ -1,10 +1,11 @@
-import { test, expect, describe } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { isError, isTaggedError } from "errore";
-import { HttpError, ValidationError, AuthError, XboxError, LaunchError } from "./errors.js";
+
+import { AuthError, HttpError, LaunchError, ValidationError, XboxError } from "./errors.js";
 
 describe("tagged errors", () => {
   test("HttpError has interpolated message and properties", () => {
-    const err = new HttpError({ method: "POST", url: "https://example.com", status: "404" });
+    const err = new HttpError({ method: "POST", status: "404", url: "https://example.com" });
     expect(err.message).toBe("POST https://example.com returned 404");
     expect(err._tag).toBe("HttpError");
     expect(isError(err)).toBe(true);
@@ -12,8 +13,8 @@ describe("tagged errors", () => {
   });
 
   test("AuthError wraps cause chain", () => {
-    const cause = new HttpError({ method: "GET", url: "https://api.example.com", status: "500" });
-    const err = new AuthError({ message: "Token refresh failed", cause });
+    const cause = new HttpError({ method: "GET", status: "500", url: "https://api.example.com" });
+    const err = new AuthError({ cause, message: "Token refresh failed" });
     expect(err.message).toBe("Token refresh failed");
     expect(err.cause).toBe(cause);
     expect(err._tag).toBe("AuthError");

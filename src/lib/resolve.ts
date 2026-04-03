@@ -1,17 +1,49 @@
+import { type } from "arktype";
 import { join } from "node:path";
+
 import type {
-  CurseForgeInstance,
   LaunchConfig,
   MojangLibrary,
   VersionArgument,
-  VersionJson,
 } from "./types.js";
-import { INSTALL, LWJGL_VERSION } from "./paths.js";
+
 import { parseMaven } from "./maven.js";
+import { INSTALL, LWJGL_VERSION } from "./paths.js";
 import { osMatches } from "./rules.js";
 
-async function loadJson<T>(path: string): Promise<T> {
-  return Bun.file(path).json();
+const CurseForgeInstanceSchema = type({
+  baseModLoader: { "forgeVersion?": "string", name: "string", "type?": "number" },
+  gameVersion: "string",
+});
+
+const VersionJsonSchema = type({
+  "arguments?": { "game?": "unknown[]", "jvm?": "unknown[]" },
+  "assetIndex?": { id: "string" },
+  "assets?": "string",
+  "id?": "string",
+  "inheritsFrom?": "string",
+  libraries: type({
+    "downloads?": "unknown",
+    name: "string",
+    "natives?": "unknown",
+    "rules?": "unknown[]",
+  }).array(),
+  mainClass: "string",
+});
+
+async function loadCurseForgeInstance(path: string) {
+  const raw = await Bun.file(path).json();
+  const result = CurseForgeInstanceSchema(raw);
+  if (result instanceof type.errors) throw new Error(`Invalid CurseForge instance at ${path}: ${result.summary}`);
+  return result;
+}
+
+async function loadVersionJson(path: string) {
+  const raw = await Bun.file(path).json();
+  const result = VersionJsonSchema(raw);
+  if (result instanceof type.errors) throw new Error(`Invalid version JSON at ${path}: ${result.summary}`);
+  // Cast libraries/arguments to proper types since arktype validated structure
+  return result as unknown as { arguments?: { game?: VersionArgument[]; jvm?: VersionArgument[]; }; assetIndex?: { id: string }; assets?: string; libraries: MojangLibrary[]; mainClass: string; };
 }
 
 /** Flatten VersionArgument[] into string[], evaluating conditional entries via osMatches. */
@@ -36,18 +68,12 @@ export async function resolveClasspath(
   const versionsDir = join(installDir, "versions");
   const librariesDir = join(installDir, "libraries");
 
-  const instance = await loadJson<CurseForgeInstance>(
-    join(instanceDir, "minecraftinstance.json")
-  );
+  const instance = await loadCurseForgeInstance(join(instanceDir, "minecraftinstance.json"));
   const forgeName = instance.baseModLoader.name;
   const mcVersion = instance.gameVersion;
 
-  const forge = await loadJson<VersionJson>(
-    join(versionsDir, forgeName, `${forgeName}.json`)
-  );
-  const base = await loadJson<VersionJson>(
-    join(versionsDir, mcVersion, `${mcVersion}.json`)
-  );
+  const forge = await loadVersionJson(join(versionsDir, forgeName, `${forgeName}.json`));
+  const base = await loadVersionJson(join(versionsDir, mcVersion, `${mcVersion}.json`));
 
   const classpath: string[] = [];
   const seenPaths = new Set<string>();
@@ -78,17 +104,11 @@ export async function resolveClasspath(
     if (coord.artifact === "java-objc-bridge") version = "1.1";
 
     const dl = lib.downloads?.artifact;
-    let jarPath: string;
-
-    if (dl?.path && coord.group === "org.lwjgl") {
-      jarPath = join(librariesDir, "org/lwjgl", coord.artifact, version, `${coord.artifact}-${version}.jar`);
-    } else if (dl?.path && coord.artifact === "java-objc-bridge") {
-      jarPath = join(librariesDir, coord.group.replace(/\./g, "/"), coord.artifact, version, `${coord.artifact}-${version}.jar`);
-    } else if (dl?.path) {
-      jarPath = join(librariesDir, dl.path);
-    } else {
-      jarPath = join(librariesDir, coord.group.replace(/\./g, "/"), coord.artifact, version, `${coord.artifact}-${version}.jar`);
-    }
+    const needsOverride = coord.group === "org.lwjgl" || coord.artifact === "java-objc-bridge";
+    const mavenPath = join(coord.group.replaceAll('.', "/"), coord.artifact, version, `${coord.artifact}-${version}.jar`);
+    const jarPath = (dl?.path && !needsOverride)
+      ? join(librariesDir, dl.path)
+      : join(librariesDir, mavenPath);
 
     if (!seenPaths.has(jarPath)) {
       seenPaths.add(jarPath);
@@ -110,9 +130,9 @@ export async function resolveClasspath(
 
   const resolvePlaceholders = (s: string) =>
     s
-      .replace(/\$\{library_directory}/g, librariesDir)
-      .replace(/\$\{classpath_separator}/g, ":")
-      .replace(/\$\{version_name}/g, forgeName);
+      .replaceAll('${library_directory}', librariesDir)
+      .replaceAll('${classpath_separator}', ":")
+      .replaceAll('${version_name}', forgeName);
 
   for (let i = 0; i < rawJvm.length; i++) {
     const arg = resolvePlaceholders(rawJvm[i]!);
@@ -130,19 +150,20 @@ export async function resolveClasspath(
   const mainClass = forge.mainClass ?? base.mainClass;
 
   return {
-    classpath,
-    modulePath: modulePath ? modulePath.split(":") : [],
-    jvmArgs,
-    gameArgs,
-    mainClass,
     assetIndex,
+    classpath,
     forgeName,
+    gameArgs,
+    jvmArgs,
+    mainClass,
     mcVersion,
+    modulePath: modulePath ? modulePath.split(":") : [],
   };
 }
 
 export async function resolveCommand(opts: { instance?: string }) {
-  const instanceDir = opts.instance ?? (await import("./paths.js")).DEFAULT_INSTANCE;
+  const { DEFAULT_INSTANCE } = await import("./paths.js");
+  const instanceDir = opts.instance ?? DEFAULT_INSTANCE;
   const config = await resolveClasspath(instanceDir);
   console.log(JSON.stringify(config, null, 2));
 }

@@ -1,5 +1,6 @@
-import { test, expect, describe } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
+
 import { findZuluDirs, JAVA_DIR } from "./java.js";
 
 describe("findZuluDirs", () => {
@@ -16,7 +17,7 @@ describe("findZuluDirs", () => {
 
   test("results are sorted", async () => {
     const dirs = await findZuluDirs("17");
-    expect(dirs).toEqual([...dirs].sort());
+    expect(dirs).toEqual([...dirs].sort((a, b) => a.localeCompare(b)));
   });
 
   test("latest dir has a valid java binary", async () => {

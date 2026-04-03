@@ -1,11 +1,13 @@
-import { test, expect, describe, afterAll } from "bun:test";
-import { loadConfig, saveConfig } from "./config.js";
+import { afterAll, describe, expect, test } from "bun:test";
+
 import type { UserConfig } from "./types.js";
+
+import { loadConfig, saveConfig } from "./config.js";
 
 const TEST_PATH = "/tmp/mc-arm64-test-config.json";
 
 afterAll(async () => {
-  try { await Bun.file(TEST_PATH).unlink(); } catch {}
+  try { await Bun.file(TEST_PATH).unlink(); } catch { /* cleanup best-effort */ }
 });
 
 describe("config", () => {
@@ -21,11 +23,11 @@ describe("config", () => {
   test("save then load round-trips all fields", async () => {
     const original: UserConfig = {
       defaultInstance: "Test Pack",
-      javaVersion: "21",
-      xmx: "4096m",
-      xms: "512m",
-      width: 1920,
       height: 1080,
+      javaVersion: "21",
+      width: 1920,
+      xms: "512m",
+      xmx: "4096m",
     };
 
     await saveConfig(original, TEST_PATH);

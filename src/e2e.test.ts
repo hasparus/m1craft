@@ -1,25 +1,25 @@
-import { test, expect, describe } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 
 const MAIN = join(import.meta.dir, "main.ts");
 
 async function run(...args: string[]) {
   const proc = Bun.spawn(["bun", MAIN, ...args], {
-    stdout: "pipe",
-    stderr: "pipe",
     env: { ...process.env, NO_COLOR: "1" },
+    stderr: "pipe",
+    stdout: "pipe",
   });
   const [stdout, stderr] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),
   ]);
   const exitCode = await proc.exited;
-  return { stdout, stderr, exitCode };
+  return { exitCode, stderr, stdout };
 }
 
 describe("e2e", () => {
   test("--help prints usage and exits 0", async () => {
-    const { stdout, exitCode } = await run("--help");
+    const { exitCode, stdout } = await run("--help");
     expect(exitCode).toBe(0);
     expect(stdout).toContain("mc-arm64");
     expect(stdout).toContain("Commands:");
@@ -30,7 +30,7 @@ describe("e2e", () => {
   });
 
   test("help command prints usage", async () => {
-    const { stdout, exitCode } = await run("help");
+    const { exitCode, stdout } = await run("help");
     expect(exitCode).toBe(0);
     expect(stdout).toContain("mc-arm64");
   });
@@ -42,7 +42,7 @@ describe("e2e", () => {
   });
 
   test("auth --check reports token status", async () => {
-    const { stdout, exitCode } = await run("auth", "--check");
+    const { exitCode, stdout } = await run("auth", "--check");
     expect(exitCode).toBe(0);
     // Either "Token valid" or "No cached auth" or "Token expired"
     expect(
@@ -53,7 +53,7 @@ describe("e2e", () => {
   });
 
   test("resolve prints JSON classpath", async () => {
-    const { stdout, exitCode } = await run("resolve");
+    const { exitCode, stdout } = await run("resolve");
     expect(exitCode).toBe(0);
     const config = JSON.parse(stdout);
     expect(config.classpath).toBeArray();

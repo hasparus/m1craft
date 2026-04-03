@@ -1,5 +1,7 @@
 import { join } from "node:path";
+
 import type { UserConfig } from "./types.js";
+
 import { CF_BASE, CONFIG_PATH } from "./paths.js";
 
 export async function loadConfig(path = CONFIG_PATH): Promise<UserConfig> {
@@ -21,7 +23,7 @@ export async function discoverInstances(): Promise<string[]> {
     for await (const entry of new Bun.Glob("*/minecraftinstance.json").scan(instancesDir)) {
       results.push(entry.replace("/minecraftinstance.json", ""));
     }
-  } catch {}
-  results.sort();
+  } catch { /* dir may not exist */ }
+  results.sort((a, b) => a.localeCompare(b));
   return results;
 }
