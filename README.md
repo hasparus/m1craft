@@ -13,14 +13,20 @@ Prerequisites:
 
 ### Option A: Pre-built binary (no dependencies)
 
-Download `m1craft-macos-arm64.zip` from [Releases](https://github.com/hasparus/m1craft/releases), extract it, then:
+Download `m1craft-macos-arm64.zip` from [Releases](https://github.com/hasparus/m1craft/releases), extract it, then run:
 
 ```bash
-./m1craft setup
 ./m1craft
 ```
 
-That's it. On first launch it will ask you to pick your modpack and sign in with Microsoft.
+On first launch, m1craft will:
+1. Check whether Java and LWJGL natives are installed
+2. Run `setup` automatically if they are missing
+3. Ask you to pick your modpack instance
+4. Open your browser for Microsoft login
+5. Launch Minecraft
+
+After that, everything is cached. Later launches just start the game.
 
 ### Option B: From source
 
@@ -36,32 +42,20 @@ bun src/main.ts
 
 Build a standalone binary with `bun run build`. Build the release zip with `bun run package`.
 
-## Usage
-
-### Just run it
-
-```bash
-m1craft
-```
-
-On first run, m1craft will:
-1. Check if Java and LWJGL natives are installed (runs setup if not)
-2. Ask you to pick your modpack instance
-3. Open your browser for Microsoft login (the code is auto-copied to your clipboard)
-4. Launch Minecraft
-
-After that, everything is cached — subsequent launches just start the game.
+## CLI
 
 ### Commands
 
 ```bash
 m1craft              # Launch (default)
 m1craft config       # Change modpack, memory, window size
-m1craft setup        # Download JDK + LWJGL natives
+m1craft setup        # Download JDK + LWJGL natives now
 m1craft auth         # Sign in to Microsoft
 m1craft auth --check # Check login status
 m1craft --help       # Show all options
 ```
+
+You usually only need `m1craft`. Run `m1craft setup` yourself only if you want to preinstall Java and the native libraries before the first launch.
 
 ### Flags
 
