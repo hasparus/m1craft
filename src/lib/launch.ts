@@ -1,50 +1,21 @@
-import { homedir } from "node:os";
 import { join } from "node:path";
-import { readdir } from "node:fs/promises";
 import { authenticate } from "./auth.js";
 import { resolveClasspath } from "./resolve.js";
 import { loadConfig } from "./config.js";
+import { findJavaBinary } from "./java.js";
 import { CF_BASE, INSTALL, NATIVES_DIR, DEFAULT_INSTANCE, LWJGL_VERSION } from "./paths.js";
 import { LaunchError } from "./errors.js";
 
-async function findJava(javaVersion = "17"): Promise<string> {
-  const javaDir = join(homedir(), "Library/Java");
-  let entries: string[];
-  try {
-    const all = await readdir(javaDir);
-    entries = all.filter((e) => e.startsWith(`zulu${javaVersion}`) && e.includes("macosx_aarch64")).sort();
-  } catch {
-    throw new LaunchError({ message: "~/Library/Java not found. Run 'mc-arm64 setup' first." });
-  }
-  const match = entries.at(-1);
-  if (!match) throw new LaunchError({ message: `Zulu ${javaVersion} ARM not found. Run 'mc-arm64 setup' first.` });
-  return join(javaDir, match, "bin/java");
-}
-
 export async function launch(opts: { instance?: string; dryRun?: boolean }) {
-  let config = await loadConfig();
-
-  // First-launch wizard: if no config and no --instance flag, run config TUI
-  if (!opts.instance && !config.defaultInstance) {
-    const { discoverInstances } = await import("./config.js");
-    const instances = await discoverInstances();
-    if (instances.length > 0) {
-      console.error("");
-      console.error("  Welcome to mc-arm64! Let's pick your modpack first.");
-      console.error("");
-      const { configTui } = await import("./config-tui.js");
-      await configTui();
-      // Reload config after TUI saves
-      config = await loadConfig();
-    }
-  }
+  const config = await loadConfig();
 
   const instanceDir = opts.instance
     ?? (config.defaultInstance
       ? join(CF_BASE, "Instances", config.defaultInstance)
       : DEFAULT_INSTANCE);
   const javaVersion = config.javaVersion ?? "17";
-  const java = await findJava(javaVersion);
+  const java = await findJavaBinary(javaVersion);
+  if (!java) throw new LaunchError({ message: `Zulu ${javaVersion} ARM not found. Run 'mc-arm64 setup' first.` });
   const auth = await authenticate();
 
   console.error(`Auth: ${auth.username} (${auth.uuid.slice(0, 8)}...)`);

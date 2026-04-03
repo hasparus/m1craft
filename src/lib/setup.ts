@@ -1,6 +1,5 @@
-import { homedir } from "node:os";
 import { join } from "node:path";
-import { mkdir, readdir } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import {
   createCliRenderer,
   BoxRenderable,
@@ -9,10 +8,11 @@ import {
 } from "@opentui/core";
 import { SpinnerRenderable } from "opentui-spinner";
 import { INSTALL, NATIVES_DIR, LWJGL_VERSION } from "./paths.js";
+import { findZuluDirs, JAVA_DIR } from "./java.js";
 
-const JAVA_DIR = join(homedir(), "Library/Java");
 const LWJGL_DIR = join(INSTALL, "libraries/org/lwjgl");
 const MAVEN = "https://repo1.maven.org/maven2/org/lwjgl";
+const DEFAULT_JAVA_VERSION = "17";
 
 const LWJGL_LIBS = [
   "lwjgl",
@@ -23,20 +23,6 @@ const LWJGL_LIBS = [
   "lwjgl-stb",
   "lwjgl-tinyfd",
 ];
-
-/** Find zulu17 ARM dirs in ~/Library/Java — Bun.Glob.scan doesn't match dirs. */
-const DEFAULT_JAVA_VERSION = "17";
-
-async function findZuluDirs(javaVersion = DEFAULT_JAVA_VERSION): Promise<string[]> {
-  try {
-    const entries = await readdir(JAVA_DIR);
-    return entries
-      .filter((e) => e.startsWith(`zulu${javaVersion}`) && e.includes("macosx_aarch64"))
-      .sort();
-  } catch {
-    return [];
-  }
-}
 
 const NATIVE_DYLIB_MAP: Record<string, string> = {
   lwjgl: "liblwjgl.dylib",

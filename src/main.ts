@@ -62,11 +62,6 @@ async function ensureSetup() {
 }
 
 async function main() {
-  // Auto-setup on commands that need it (not help, setup itself, or --help)
-  if (command !== "help" && command !== "setup" && !values.help) {
-    await ensureSetup();
-  }
-
   switch (command) {
     case "help":
       printHelp();
@@ -74,6 +69,25 @@ async function main() {
     case "launch":
     case undefined: {
       if (values.help) { printHelp(); break; }
+      await ensureSetup();
+
+      // First-launch wizard: if no config and no --instance, run config TUI
+      if (!values.instance) {
+        const { loadConfig } = await import("./lib/config.js");
+        const config = await loadConfig();
+        if (!config.defaultInstance) {
+          const { discoverInstances } = await import("./lib/config.js");
+          const instances = await discoverInstances();
+          if (instances.length > 0) {
+            console.error("");
+            console.error("  Welcome to mc-arm64! Let's pick your modpack first.");
+            console.error("");
+            const { configTui } = await import("./lib/config-tui.js");
+            await configTui();
+          }
+        }
+      }
+
       const { launch } = await import("./lib/launch.js");
       await launch({
         instance: values.instance,
