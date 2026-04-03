@@ -126,8 +126,21 @@ async function deviceCodeFlow(): Promise<
     });
   }
 
-  console.error(`\n  Open: ${d.verification_uri}`);
-  console.error(`  Code: ${d.user_code}\n`);
+  // Copy code to clipboard for easy pasting
+  Bun.spawn(["pbcopy"], { stdin: new Response(d.user_code).body });
+
+  console.error("");
+  console.error("  ┌─────────────────────────────────────────────┐");
+  console.error("  │  Microsoft Login                            │");
+  console.error("  │                                             │");
+  console.error(`  │  Your code: ${d.user_code.padEnd(31)}│`);
+  console.error("  │  (copied to clipboard)                      │");
+  console.error("  │                                             │");
+  console.error("  │  A browser window will open.                │");
+  console.error("  │  Paste the code and sign in.                │");
+  console.error("  └─────────────────────────────────────────────┘");
+  console.error("");
+
   Bun.spawn(["open", `${d.verification_uri}?otc=${d.user_code}`]);
 
   for (let attempt = 0; attempt < MAX_POLL_ITERATIONS; attempt++) {
@@ -319,10 +332,10 @@ export async function authenticate(): Promise<AuthResult> {
   // Try refresh, fall back to device code
   let msResult: AuthError | [string, string];
   if (cache.refresh_token) {
-    console.error("Refreshing token...");
+    console.error("Refreshing login...");
     msResult = await refreshMsToken(cache.refresh_token);
     if (isError(msResult)) {
-      console.error(`Refresh failed (${msResult.message}), need new login.`);
+      console.error("Session expired, need to sign in again.");
       msResult = await deviceCodeFlow();
     }
   } else {

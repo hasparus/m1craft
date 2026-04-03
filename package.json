@@ -3,6 +3,9 @@
   "module": "src/main.ts",
   "type": "module",
   "private": true,
+  "scripts": {
+    "build": "bun build src/main.ts --compile --outfile mc-arm64"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },

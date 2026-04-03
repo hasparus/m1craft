@@ -12,16 +12,31 @@ async function findJava(): Promise<string> {
   try {
     entries = await Array.fromAsync(new Bun.Glob("zulu17.*-macosx_aarch64").scan(javaDir));
   } catch {
-    throw new LaunchError({ message: "~/Library/Java not found. Run setup.sh first." });
+    throw new LaunchError({ message: "~/Library/Java not found. Run 'mc-arm64 setup' first." });
   }
   entries.sort();
   const match = entries.at(-1); // latest version
-  if (!match) throw new LaunchError({ message: "Zulu 17 ARM not found. Run setup.sh first." });
+  if (!match) throw new LaunchError({ message: "Zulu 17 ARM not found. Run 'mc-arm64 setup' first." });
   return join(javaDir, match, "bin/java");
 }
 
 export async function launch(opts: { instance?: string; dryRun?: boolean }) {
-  const config = await loadConfig();
+  let config = await loadConfig();
+
+  // First-launch wizard: if no config and no --instance flag, run config TUI
+  if (!opts.instance && !config.defaultInstance) {
+    const { discoverInstances } = await import("./config.js");
+    const instances = await discoverInstances();
+    if (instances.length > 0) {
+      console.error("");
+      console.error("  Welcome to mc-arm64! Let's pick your modpack first.");
+      console.error("");
+      const { configTui } = await import("./config-tui.js");
+      await configTui();
+      // Reload config after TUI saves
+      config = await loadConfig();
+    }
+  }
 
   const instanceDir = opts.instance
     ?? (config.defaultInstance

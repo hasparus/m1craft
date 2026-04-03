@@ -1,4 +1,5 @@
 import { parseArgs } from "node:util";
+import { isTaggedError } from "errore";
 
 const { positionals, values } = parseArgs({
   allowPositionals: true,
@@ -29,7 +30,50 @@ Options:
   -h, --help          Show this help`);
 }
 
+function formatError(err: unknown): string {
+  if (isTaggedError(err)) {
+    const lines = [err.message];
+
+    // Walk the cause chain for context
+    let cause = err.cause;
+    while (cause instanceof Error) {
+      if (isTaggedError(cause) && cause.message !== err.message) {
+        lines.push(`  caused by: ${cause.message}`);
+      }
+      cause = cause.cause;
+    }
+
+    return lines.join("\n");
+  }
+
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
+
+async function ensureSetup() {
+  const { checkSetup, runSetup } = await import("./lib/setup.js");
+  const status = await checkSetup();
+  if (status.javaFound && status.nativesFound && status.jarsFound) return;
+
+  const missing: string[] = [];
+  if (!status.javaFound) missing.push("Zulu JDK 17 ARM64");
+  if (!status.jarsFound) missing.push("LWJGL 3.3.3 JARs");
+  if (!status.nativesFound) missing.push("ARM64 native libraries");
+
+  console.error("");
+  console.error("  First-time setup — downloading:");
+  for (const m of missing) console.error(`    - ${m}`);
+  console.error("");
+
+  await runSetup();
+}
+
 async function main() {
+  // Auto-setup on any command except help/--help
+  if (command !== "help" && !values.help) {
+    await ensureSetup();
+  }
+
   switch (command) {
     case "help":
       printHelp();
@@ -59,9 +103,11 @@ async function main() {
       await configTui();
       break;
     }
-    case "setup":
-      console.log("TODO: setup");
+    case "setup": {
+      const { runSetup } = await import("./lib/setup.js");
+      await runSetup();
       break;
+    }
     default:
       console.error(`Unknown command: ${command}`);
       printHelp();
@@ -70,6 +116,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(err.message ?? err);
+  console.error(`\n  Error: ${formatError(err)}\n`);
   process.exit(1);
 });

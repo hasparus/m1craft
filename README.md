@@ -4,72 +4,76 @@ Run Minecraft Forge 1.18.2 natively on Apple Silicon — no Rosetta.
 
 Forge 1.18.2 ships LWJGL 3.2.1, which has no arm64 macOS support. Both CurseForge and the vanilla Minecraft Launcher redownload the x86_64 libraries, so you're stuck on Rosetta emulation. This repo swaps in LWJGL 3.3.3 (which has arm64 natives) and launches Forge directly, bypassing both launchers.
 
-## Setup
+## Quick start
 
 Prerequisites:
 - macOS on Apple Silicon (M1/M2/M3/M4)
 - [CurseForge](https://www.curseforge.com/download/app) with the modpack installed
 - **Launch the modpack through CurseForge at least once** (so it downloads all the library JARs)
-- [Bun](https://bun.sh/) (`curl -fsSL https://bun.sh/install | bash`)
+
+### Option A: Pre-built binary (no dependencies)
+
+Download `mc-arm64` from [Releases](https://github.com/hasparus/mc-arm64/releases), then:
+
+```bash
+chmod +x mc-arm64
+./mc-arm64 setup
+./mc-arm64
+```
+
+That's it. On first launch it will ask you to pick your modpack and sign in with Microsoft.
+
+### Option B: From source
+
+Requires [Bun](https://bun.sh/).
 
 ```bash
 git clone https://github.com/hasparus/mc-arm64.git
 cd mc-arm64
 bun install
-bash setup.sh
+bun src/main.ts setup
+bun src/main.ts
 ```
 
-Setup will:
-- Install [Zulu JDK 17 ARM64](https://www.azul.com/downloads/?version=java-17-lts&os=macos&architecture=arm-64-bit) if not already present
-- Download LWJGL 3.3.3 JARs and arm64 native libraries from Maven Central
-- Copy the launch script and auth helper into your CurseForge directory
+Build a standalone binary with `bun run build`.
 
 ## Usage
 
-### Configure
+### Just run it
 
 ```bash
-bun src/main.ts config
+mc-arm64
 ```
 
-Interactive TUI to set your default instance, memory allocation, and window size. Saves to `~/.mc-arm64.json`.
+On first run, mc-arm64 will:
+1. Check if Java and LWJGL natives are installed (runs setup if not)
+2. Ask you to pick your modpack instance
+3. Open your browser for Microsoft login (the code is auto-copied to your clipboard)
+4. Launch Minecraft
 
-### Launch
+After that, everything is cached — subsequent launches just start the game.
+
+### Commands
 
 ```bash
-bun src/main.ts launch
+mc-arm64              # Launch (default)
+mc-arm64 config       # Change modpack, memory, window size
+mc-arm64 setup        # Download JDK + LWJGL natives
+mc-arm64 auth         # Sign in to Microsoft
+mc-arm64 auth --check # Check login status
+mc-arm64 --help       # Show all options
 ```
 
-First run opens your browser for Microsoft login. After that, the token refreshes automatically.
-
-Override instance or preview the JVM command:
-```bash
-bun src/main.ts launch --instance "/path/to/instance"
-bun src/main.ts launch --dry-run
-```
-
-### Other commands
+### Flags
 
 ```bash
-bun src/main.ts auth          # Authenticate with Microsoft
-bun src/main.ts auth --check  # Check token status
-bun src/main.ts resolve       # Print resolved classpath as JSON
-bun src/main.ts --help        # Show help
+mc-arm64 launch --instance "/path/to/instance"  # Override modpack
+mc-arm64 launch --dry-run                        # Print JVM command without launching
 ```
-
-## How it works
-
-**`setup.sh`** downloads LWJGL 3.3.3 JARs + arm64 `.dylib` files into a directory CurseForge doesn't manage, so they won't be overwritten.
-
-**`src/lib/resolve.ts`** dynamically resolves the classpath from the Forge and Minecraft version JSONs, swapping LWJGL versions and filtering libraries by OS/arch rules.
-
-**`src/lib/auth.ts`** handles Microsoft authentication (device code flow via `login.live.com` -> Xbox Live -> XSTS -> Minecraft). All API responses are validated with [arktype](https://arktype.io/). Tokens cached at `~/.mc-auth-cache.json`.
-
-**`src/lib/launch.ts`** assembles the JVM command line and spawns Java. Reads config from `~/.mc-arm64.json` (set via `config` command), with CLI flags as overrides.
 
 ## Configuration
 
-`~/.mc-arm64.json` (created by `bun src/main.ts config`):
+`~/.mc-arm64.json` (created by `mc-arm64 config`):
 
 ```json
 {
@@ -81,13 +85,23 @@ bun src/main.ts --help        # Show help
 }
 ```
 
-All fields are optional. CLI flags (`--instance`) override config values.
+All fields are optional. CLI flags override config values.
+
+## How it works
+
+**`mc-arm64 setup`** downloads Zulu JDK 17 ARM64, LWJGL 3.3.3 JARs, and arm64 `.dylib` native libraries into a directory CurseForge doesn't manage, so they won't be overwritten.
+
+**Classpath resolver** dynamically reads the Forge and Minecraft version JSONs, swaps LWJGL versions, filters libraries by OS/arch rules, and resolves placeholders in JVM arguments.
+
+**Auth** uses Microsoft's device code flow (`login.live.com` -> Xbox Live -> XSTS -> Minecraft services). All API responses are validated with [arktype](https://arktype.io/). Tokens cached at `~/.mc-auth-cache.json` and auto-refresh without opening a browser.
+
+**Launcher** assembles the JVM command line and spawns Java with the correct classpath, module path, native library path, and game arguments.
 
 ## Limitations
 
 - **Forge 1.18.2 only.** Other Forge versions need different library versions and may use argument formats not yet handled.
-- **CurseForge Forge updates will break it.** If CurseForge updates Forge for your modpack, the resolved classpath may not match. Re-run `setup.sh` and test.
-- Window size and memory are configurable via `config`, but some JVM flags (e.g. `-XstartOnFirstThread`) are hardcoded for macOS.
+- **CurseForge Forge updates will break it.** If CurseForge updates Forge for your modpack, run `mc-arm64 setup` again.
+- Some JVM flags (e.g. `-XstartOnFirstThread`) are hardcoded for macOS.
 
 ## Prior art
 
