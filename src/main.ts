@@ -16,7 +16,7 @@ const { positionals, values } = parseArgs({
 const command = positionals[0];
 
 function printHelp() {
-  console.log(`mc-arm64 — Minecraft Forge on Apple Silicon
+  console.log(`m1craft — Minecraft Forge on Apple Silicon
 
 Commands:
   launch    Launch Minecraft (default if no command given)
@@ -89,7 +89,7 @@ try {
           const instances = await discoverInstances();
           if (instances.length > 0) {
             console.error("");
-            console.error("  Welcome to mc-arm64! Let's pick your modpack first.");
+            console.error("  Welcome to m1craft! Let's pick your modpack first.");
             console.error("");
             const { configTui } = await import("./lib/config-tui.js");
             await configTui();

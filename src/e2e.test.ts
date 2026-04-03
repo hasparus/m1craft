@@ -24,7 +24,7 @@ describe("e2e", () => {
   test("--help prints usage and exits 0", async () => {
     const { exitCode, stdout } = await run("--help");
     expect(exitCode).toBe(0);
-    expect(stdout).toContain("mc-arm64");
+    expect(stdout).toContain("m1craft");
     expect(stdout).toContain("Commands:");
     expect(stdout).toContain("launch");
     expect(stdout).toContain("auth");
@@ -35,7 +35,7 @@ describe("e2e", () => {
   test("help command prints usage", async () => {
     const { exitCode, stdout } = await run("help");
     expect(exitCode).toBe(0);
-    expect(stdout).toContain("mc-arm64");
+    expect(stdout).toContain("m1craft");
   });
 
   test("unknown command exits 1", async () => {
@@ -75,7 +75,7 @@ describe("e2e", () => {
     expect(stdout).toContain("bin/java");
     // Should contain key JVM flags
     expect(stdout).toContain("-XstartOnFirstThread");
-    expect(stdout).toContain("-Dminecraft.launcher.brand=mc-arm64");
+    expect(stdout).toContain("-Dminecraft.launcher.brand=m1craft");
     // Classpath
     expect(stdout).toContain("-cp");
     // Game args

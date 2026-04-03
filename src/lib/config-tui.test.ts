@@ -18,7 +18,7 @@ describe("config TUI", () => {
       flexDirection: "column", gap: 1, height: "100%", id: "root", padding: 1, width: "100%",
     });
 
-    root.add(new TextRenderable(renderer, { content: "mc-arm64 config", height: 1, id: "title" }));
+    root.add(new TextRenderable(renderer, { content: "m1craft config", height: 1, id: "title" }));
     root.add(new TextRenderable(renderer, { content: "Default instance:", height: 1, id: "instance-label" }));
 
     const select = new SelectRenderable(renderer, {
@@ -40,7 +40,7 @@ describe("config TUI", () => {
     await renderOnce();
 
     const frame = captureCharFrame();
-    expect(frame).toContain("mc-arm64 config");
+    expect(frame).toContain("m1craft config");
     expect(frame).toContain("Default instance:");
     expect(frame).toContain("Test Pack A");
     expect(frame).toContain("Test Pack B");

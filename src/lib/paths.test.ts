@@ -9,6 +9,8 @@ import {
   getAuthCachePath,
   getConfigPath,
   INSTALL,
+  LEGACY_AUTH_CACHE_PATH,
+  LEGACY_CONFIG_PATH,
   LWJGL_VERSION,
   NATIVES_DIR,
 } from "./paths.js";
@@ -30,24 +32,32 @@ describe("paths", () => {
     expect(NATIVES_DIR).toBe(join(INSTALL, "natives/arm64"));
   });
 
-  test("AUTH_CACHE_PATH is in home dir", () => {
-    expect(AUTH_CACHE_PATH).toBe(join(home, ".mc-auth-cache.json"));
+  test("AUTH_CACHE_PATH uses the m1craft name", () => {
+    expect(AUTH_CACHE_PATH).toBe(join(home, ".m1craft-auth.json"));
   });
 
   test("getAuthCachePath respects env override", () => {
-    process.env["MC_ARM64_AUTH_CACHE_PATH"] = "/tmp/auth-cache.json";
+    process.env["M1CRAFT_AUTH_CACHE_PATH"] = "/tmp/auth-cache.json";
     expect(getAuthCachePath()).toBe("/tmp/auth-cache.json");
-    delete process.env["MC_ARM64_AUTH_CACHE_PATH"];
+    delete process.env["M1CRAFT_AUTH_CACHE_PATH"];
   });
 
-  test("CONFIG_PATH is in home dir", () => {
-    expect(CONFIG_PATH).toBe(join(home, ".mc-arm64.json"));
+  test("legacy auth cache path stays readable", () => {
+    expect(LEGACY_AUTH_CACHE_PATH).toBe(join(home, ".mc-auth-cache.json"));
+  });
+
+  test("CONFIG_PATH uses the m1craft name", () => {
+    expect(CONFIG_PATH).toBe(join(home, ".m1craft.json"));
   });
 
   test("getConfigPath respects env override", () => {
-    process.env["MC_ARM64_CONFIG_PATH"] = "/tmp/config.json";
+    process.env["M1CRAFT_CONFIG_PATH"] = "/tmp/config.json";
     expect(getConfigPath()).toBe("/tmp/config.json");
-    delete process.env["MC_ARM64_CONFIG_PATH"];
+    delete process.env["M1CRAFT_CONFIG_PATH"];
+  });
+
+  test("legacy config path stays readable", () => {
+    expect(LEGACY_CONFIG_PATH).toBe(join(home, ".mc-arm64.json"));
   });
 
   test("LWJGL_VERSION is a valid semver", () => {

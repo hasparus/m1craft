@@ -1,5 +1,5 @@
 #!/bin/bash
-# ARM64 Minecraft launcher for Forge 1.18.2 on Apple Silicon.
+# m1craft launcher for Forge 1.18.2 on Apple Silicon.
 # Uses LWJGL 3.3.3 + Microsoft OAuth. Run setup.sh first.
 set -euo pipefail
 
@@ -25,7 +25,7 @@ if [ -z "$JAVA" ]; then
 fi
 
 # Auth
-AUTH=$(python3 "$SCRIPT_DIR/mc-auth.py") || exit 1
+AUTH=$(python3 "$SCRIPT_DIR/m1craft-auth.py") || exit 1
 MC_TOKEN=$(echo "$AUTH" | python3 -c "import sys,json; print(json.load(sys.stdin)['accessToken'])")
 MC_UUID=$(echo "$AUTH" | python3 -c "import sys,json; print(json.load(sys.stdin)['uuid'])")
 MC_USERNAME=$(echo "$AUTH" | python3 -c "import sys,json; print(json.load(sys.stdin)['username'])")
@@ -118,7 +118,7 @@ exec "$JAVA" \
   -Dorg.lwjgl.librarypath="$ARM64_NATIVES" \
   -Djava.library.path="$ARM64_NATIVES" \
   -Dfml.earlyprogresswindow=false \
-  -Dminecraft.launcher.brand=mc-arm64 \
+  -Dminecraft.launcher.brand=m1craft \
   -Djava.net.preferIPv6Addresses=system \
   -DignoreList=bootstraplauncher,securejarhandler,asm-commons,asm-util,asm-analysis,asm-tree,asm,JarJarFileSystems,client-extra,fmlcore,javafmllanguage,lowcodelanguage,mclanguage,forge-,forge-40.3.0.jar,forge-40.3.0 \
   -DmergeModules=jna-5.12.1.jar,jna-platform-5.12.1.jar,java-objc-bridge-1.0.0.jar \

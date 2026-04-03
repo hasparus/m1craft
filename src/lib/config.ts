@@ -2,12 +2,23 @@ import { join } from "node:path";
 
 import type { UserConfig } from "./types.js";
 
-import { CF_BASE, getConfigPath } from "./paths.js";
+import {
+  CF_BASE,
+  CONFIG_PATH,
+  getConfigPath,
+  hasConfigPathOverride,
+  LEGACY_CONFIG_PATH,
+} from "./paths.js";
 
 export async function loadConfig(path = getConfigPath()): Promise<UserConfig> {
   try {
     return await Bun.file(path).json();
   } catch {
+    if (path === CONFIG_PATH && !hasConfigPathOverride()) {
+      try {
+        return await Bun.file(LEGACY_CONFIG_PATH).json();
+      } catch { /* fall through */ }
+    }
     return {};
   }
 }

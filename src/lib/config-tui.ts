@@ -120,7 +120,7 @@ export async function configTui(): Promise<void> {
     flexDirection: "column", gap: 1, height: "100%", id: "root", padding: 1, width: "100%",
   });
 
-  root.add(new TextRenderable(renderer, { content: "mc-arm64 config", height: 1, id: "title" }));
+  root.add(new TextRenderable(renderer, { content: "m1craft config", height: 1, id: "title" }));
 
   root.add(new TextRenderable(renderer, { content: "Default instance:", height: 1, id: "instance-label" }));
   const instanceSelect = createInstanceSelector(renderer, instanceNames, config);

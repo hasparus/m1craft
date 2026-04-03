@@ -5,14 +5,16 @@ Uses the official Minecraft launcher's Azure client ID (00000000402b5328)
 for the login.live.com device code flow. This is the same approach used by
 most third-party launchers (Prism, HMCL, etc).
 
-Tokens are cached at ~/.mc-auth-cache.json (chmod 600). The Minecraft access
+Tokens are cached at ~/.m1craft-auth.json (chmod 600). The Minecraft access
 token is valid for ~24h; the refresh token renews it without opening a browser.
 """
 import json, os, sys, time, webbrowser
 from urllib.request import Request, urlopen
 from urllib.parse import urlencode
 
-CACHE = os.path.expanduser("~/.mc-auth-cache.json")
+DEFAULT_CACHE = os.path.expanduser("~/.m1craft-auth.json")
+LEGACY_CACHE = os.path.expanduser("~/.mc-auth-cache.json")
+CACHE = os.environ.get("M1CRAFT_AUTH_CACHE_PATH") or os.environ.get("MC_ARM64_AUTH_CACHE_PATH") or DEFAULT_CACHE
 CLIENT_ID = "00000000402b5328"
 TIMEOUT = 15
 
@@ -103,11 +105,16 @@ def ms_to_minecraft(ms_token):
     return mc_token, prof["id"], prof["name"], expires_at
 
 def load_cache():
-    try:
-        with open(CACHE) as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
+    paths = [CACHE]
+    if CACHE == DEFAULT_CACHE and LEGACY_CACHE != DEFAULT_CACHE:
+        paths.append(LEGACY_CACHE)
+    for path in paths:
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            continue
+    return {}
 
 def save_cache(data):
     with open(CACHE, "w") as f:

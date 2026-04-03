@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { resolveClasspath } from "./resolve.js";
 
-const FIXTURE = "/tmp/mc-arm64-resolve-test";
+const FIXTURE = "/tmp/m1craft-resolve-test";
 const INSTANCE = join(FIXTURE, "instance");
 const INSTALL = join(FIXTURE, "install");
 

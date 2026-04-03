@@ -5,7 +5,12 @@ import { chmod } from "node:fs/promises";
 import type { AuthCache, AuthResult } from "./types.js";
 
 import { AuthError, HttpError, ValidationError, XboxError } from "./errors.js";
-import { getAuthCachePath } from "./paths.js";
+import {
+  AUTH_CACHE_PATH,
+  getAuthCachePath,
+  hasAuthCachePathOverride,
+  LEGACY_AUTH_CACHE_PATH,
+} from "./paths.js";
 
 const CLIENT_ID = "00000000402b5328";
 const TIMEOUT = 15_000;
@@ -328,6 +333,11 @@ async function loadCache(): Promise<Partial<AuthCache>> {
   try {
     return await Bun.file(cachePath).json();
   } catch {
+    if (cachePath === AUTH_CACHE_PATH && !hasAuthCachePathOverride()) {
+      try {
+        return await Bun.file(LEGACY_AUTH_CACHE_PATH).json();
+      } catch { /* fall through */ }
+    }
     return {};
   }
 }
@@ -398,7 +408,7 @@ export async function authCommand(opts: { check?: boolean }) {
     } else if (cache.refresh_token) {
       console.log("Token expired but refresh token available.");
     } else {
-      console.log("No cached auth. Run 'mc-arm64 auth' to log in.");
+      console.log("No cached auth. Run 'm1craft auth' to log in.");
     }
     return;
   }

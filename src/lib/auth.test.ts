@@ -8,7 +8,7 @@ import { getAuthCachePath } from "./paths.js";
 const MOCK_MC_TOKEN = "mock-mc-access-token";
 const MOCK_UUID = "abcdef1234567890abcdef1234567890";
 const MOCK_USERNAME = "TestPlayer";
-const TEST_AUTH_CACHE_PATH = "/tmp/mc-arm64-auth-cache.json";
+const TEST_AUTH_CACHE_PATH = "/tmp/m1craft-auth-cache.json";
 
 // Track which endpoints get called
 let callLog: string[] = [];
@@ -73,7 +73,7 @@ const handlers = [
 const server = setupServer(...handlers);
 
 beforeAll(() => {
-  process.env["MC_ARM64_AUTH_CACHE_PATH"] = TEST_AUTH_CACHE_PATH;
+  process.env["M1CRAFT_AUTH_CACHE_PATH"] = TEST_AUTH_CACHE_PATH;
   server.listen({ onUnhandledRequest: "error" });
 });
 afterEach(async () => {
@@ -83,7 +83,7 @@ afterEach(async () => {
 });
 afterAll(async () => {
   server.close();
-  delete process.env["MC_ARM64_AUTH_CACHE_PATH"];
+  delete process.env["M1CRAFT_AUTH_CACHE_PATH"];
   try { await Bun.file(TEST_AUTH_CACHE_PATH).unlink(); } catch { /* ok */ }
 });
 

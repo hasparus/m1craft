@@ -1,4 +1,4 @@
-# mc-arm64
+# m1craft
 
 Run Minecraft Forge 1.18.2 natively on Apple Silicon — no Rosetta.
 
@@ -13,12 +13,12 @@ Prerequisites:
 
 ### Option A: Pre-built binary (no dependencies)
 
-Download `mc-arm64` from [Releases](https://github.com/hasparus/mc-arm64/releases), then:
+Download `m1craft` from [Releases](https://github.com/hasparus/m1craft/releases), then:
 
 ```bash
-chmod +x mc-arm64
-./mc-arm64 setup
-./mc-arm64
+chmod +x m1craft
+./m1craft setup
+./m1craft
 ```
 
 That's it. On first launch it will ask you to pick your modpack and sign in with Microsoft.
@@ -28,8 +28,8 @@ That's it. On first launch it will ask you to pick your modpack and sign in with
 Requires [Bun](https://bun.sh/).
 
 ```bash
-git clone https://github.com/hasparus/mc-arm64.git
-cd mc-arm64
+git clone https://github.com/hasparus/m1craft.git
+cd m1craft
 bun install
 bun src/main.ts setup
 bun src/main.ts
@@ -42,10 +42,10 @@ Build a standalone binary with `bun run build`.
 ### Just run it
 
 ```bash
-mc-arm64
+m1craft
 ```
 
-On first run, mc-arm64 will:
+On first run, m1craft will:
 1. Check if Java and LWJGL natives are installed (runs setup if not)
 2. Ask you to pick your modpack instance
 3. Open your browser for Microsoft login (the code is auto-copied to your clipboard)
@@ -56,24 +56,24 @@ After that, everything is cached — subsequent launches just start the game.
 ### Commands
 
 ```bash
-mc-arm64              # Launch (default)
-mc-arm64 config       # Change modpack, memory, window size
-mc-arm64 setup        # Download JDK + LWJGL natives
-mc-arm64 auth         # Sign in to Microsoft
-mc-arm64 auth --check # Check login status
-mc-arm64 --help       # Show all options
+m1craft              # Launch (default)
+m1craft config       # Change modpack, memory, window size
+m1craft setup        # Download JDK + LWJGL natives
+m1craft auth         # Sign in to Microsoft
+m1craft auth --check # Check login status
+m1craft --help       # Show all options
 ```
 
 ### Flags
 
 ```bash
-mc-arm64 launch --instance "/path/to/instance"  # Override modpack
-mc-arm64 launch --dry-run                        # Print JVM command without launching
+m1craft launch --instance "/path/to/instance"  # Override modpack
+m1craft launch --dry-run                        # Print JVM command without launching
 ```
 
 ## Configuration
 
-`~/.mc-arm64.json` (created by `mc-arm64 config`):
+`~/.m1craft.json` (created by `m1craft config`):
 
 ```json
 {
@@ -89,18 +89,18 @@ All fields are optional. CLI flags override config values.
 
 ## How it works
 
-**`mc-arm64 setup`** downloads Zulu JDK 17 ARM64, LWJGL 3.3.3 JARs, and arm64 `.dylib` native libraries into a directory CurseForge doesn't manage, so they won't be overwritten.
+**`m1craft setup`** downloads Zulu JDK 17 ARM64, LWJGL 3.3.3 JARs, and arm64 `.dylib` native libraries into a directory CurseForge doesn't manage, so they won't be overwritten.
 
 **Classpath resolver** dynamically reads the Forge and Minecraft version JSONs, swaps LWJGL versions, filters libraries by OS/arch rules, and resolves placeholders in JVM arguments.
 
-**Auth** uses Microsoft's device code flow (`login.live.com` -> Xbox Live -> XSTS -> Minecraft services). All API responses are validated with [arktype](https://arktype.io/). Tokens cached at `~/.mc-auth-cache.json` and auto-refresh without opening a browser.
+**Auth** uses Microsoft's device code flow (`login.live.com` -> Xbox Live -> XSTS -> Minecraft services). All API responses are validated with [arktype](https://arktype.io/). Tokens cached at `~/.m1craft-auth.json` and auto-refresh without opening a browser.
 
 **Launcher** assembles the JVM command line and spawns Java with the correct classpath, module path, native library path, and game arguments.
 
 ## Limitations
 
 - **Forge 1.18.2 only.** Other Forge versions need different library versions and may use argument formats not yet handled.
-- **CurseForge Forge updates will break it.** If CurseForge updates Forge for your modpack, run `mc-arm64 setup` again.
+- **CurseForge Forge updates will break it.** If CurseForge updates Forge for your modpack, run `m1craft setup` again.
 - Some JVM flags (e.g. `-XstartOnFirstThread`) are hardcoded for macOS.
 
 ## Prior art

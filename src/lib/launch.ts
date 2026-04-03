@@ -28,7 +28,7 @@ export async function launch(opts: { dryRun?: boolean; instance?: string; }, cal
   callbacks?.onStep?.("java");
   const javaVersion = config.javaVersion ?? "17";
   const java = await findZuluJavaBin(javaVersion);
-  if (!java) throw new LaunchError({ message: `Zulu ${javaVersion} ARM not found. Run 'mc-arm64 setup' first.` });
+  if (!java) throw new LaunchError({ message: `Zulu ${javaVersion} ARM not found. Run 'm1craft setup' first.` });
 
   callbacks?.onStep?.("auth");
   const auth = await authenticate(callbacks?.auth);
@@ -51,7 +51,7 @@ export async function launch(opts: { dryRun?: boolean; instance?: string; }, cal
     `-Dorg.lwjgl.librarypath=${NATIVES_DIR}`,
     `-Djava.library.path=${NATIVES_DIR}`,
     "-Dfml.earlyprogresswindow=false",
-    "-Dminecraft.launcher.brand=mc-arm64",
+    "-Dminecraft.launcher.brand=m1craft",
     ...resolved.jvmArgs,
     "-cp", resolved.classpath.join(":"),
     ...(resolved.modulePath.length > 0

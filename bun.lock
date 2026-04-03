@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "mc-arm64",
+      "name": "m1craft",
       "dependencies": {
         "@opentui/core": "^0.1.96",
         "arktype": "^2.2.0",

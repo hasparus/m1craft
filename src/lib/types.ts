@@ -75,7 +75,7 @@ export interface MavenCoordinate {
   version: string;
 }
 
-// User config (~/.mc-arm64.json)
+// User config (~/.m1craft.json)
 export interface UserConfig {
   defaultInstance?: string;
   height?: number;

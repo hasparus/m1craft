@@ -9,7 +9,7 @@ LWJGL_VER="3.3.3"
 NATIVES_DIR="$INSTALL/natives/arm64"
 LWJGL_DIR="$INSTALL/libraries/org/lwjgl"
 
-echo "=== Minecraft ARM64 Setup ==="
+echo "=== m1craft setup ==="
 
 # 1. Check/install Zulu 17 ARM
 JAVA_DIR="$HOME/Library/Java"
@@ -84,18 +84,18 @@ fi
 
 # 4. Copy launch files
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cp "$SCRIPT_DIR/mc-auth.py" "$CF_BASE/mc-auth.py"
-if [ -f "$CF_BASE/mc-arm64-launch.sh" ]; then
+cp "$SCRIPT_DIR/m1craft-auth.py" "$CF_BASE/m1craft-auth.py"
+if [ -f "$CF_BASE/m1craft-launch.sh" ]; then
   echo "[OK] launch script already exists (not overwriting — you may have local edits)"
 else
-  cp "$SCRIPT_DIR/launch.sh" "$CF_BASE/mc-arm64-launch.sh"
-  chmod +x "$CF_BASE/mc-arm64-launch.sh"
+  cp "$SCRIPT_DIR/launch.sh" "$CF_BASE/m1craft-launch.sh"
+  chmod +x "$CF_BASE/m1craft-launch.sh"
 fi
 
 echo ""
 echo "=== Done! ==="
 echo "Java:    $JAVA"
 echo "Natives: $NATIVES_DIR"
-echo "Launch:  $CF_BASE/mc-arm64-launch.sh"
+echo "Launch:  $CF_BASE/m1craft-launch.sh"
 echo ""
 echo "First launch will open your browser for Microsoft login."

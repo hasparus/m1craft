@@ -4,7 +4,7 @@ import type { UserConfig } from "./types.js";
 
 import { loadConfig, loadJavaVersion, saveConfig } from "./config.js";
 
-const TEST_PATH = "/tmp/mc-arm64-test-config.json";
+const TEST_PATH = "/tmp/m1craft-test-config.json";
 
 afterAll(async () => {
   try { await Bun.file(TEST_PATH).unlink(); } catch { /* cleanup best-effort */ }
@@ -12,7 +12,7 @@ afterAll(async () => {
 
 describe("config", () => {
   test("returns {} for missing file", async () => {
-    expect(await loadConfig("/tmp/mc-arm64-nonexistent.json")).toEqual({});
+    expect(await loadConfig("/tmp/m1craft-nonexistent.json")).toEqual({});
   });
 
   test("handles corrupt JSON gracefully", async () => {
@@ -37,7 +37,7 @@ describe("config", () => {
   });
 
   test("loadJavaVersion defaults to 17", async () => {
-    expect(await loadJavaVersion("/tmp/mc-arm64-nonexistent-java.json")).toBe("17");
+    expect(await loadJavaVersion("/tmp/m1craft-nonexistent-java.json")).toBe("17");
   });
 
   test("loadJavaVersion reads configured version", async () => {

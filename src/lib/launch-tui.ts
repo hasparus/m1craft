@@ -97,7 +97,7 @@ export async function launchWithTui(opts: { dryRun?: boolean; instance?: string;
   const root = new BoxRenderable(renderer, {
     flexDirection: "column", gap: 0, height: "100%", id: "root", padding: 1, width: "100%",
   });
-  root.add(new TextRenderable(renderer, { content: "mc-arm64", height: 2, id: "title" }));
+  root.add(new TextRenderable(renderer, { content: "m1craft", height: 2, id: "title" }));
 
   const steps: Record<LaunchStep, StepRow> = {
     auth: makeStepRow(renderer, root, "auth", "Auth"),

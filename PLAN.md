@@ -1,4 +1,4 @@
-# mc-arm64 plan
+# m1craft plan
 
 ## Status
 
@@ -14,7 +14,7 @@ All milestones complete.
 
 ## Next: test real launch
 
-Run `mc-arm64` and verify the game boots.
+Run `m1craft` and verify the game boots.
 
 ## Future
 
