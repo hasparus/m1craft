@@ -1,7 +1,7 @@
 # m1craft
 _should be called mc-arm64, but it's not funny_
 
-Run Minecraft Forge 1.18.2 natively on Apple Silicon — no Rosetta.
+**Run Minecraft Forge 1.18.2 natively on Apple Silicon — no Rosetta.**
 
 Forge 1.18.2 ships LWJGL 3.2.1, which has no arm64 macOS support. Both CurseForge and the vanilla Minecraft Launcher redownload the x86_64 libraries, so you're stuck on Rosetta emulation. This repo swaps in LWJGL 3.3.3 (which has arm64 natives) and launches Forge directly, bypassing both launchers.
 
