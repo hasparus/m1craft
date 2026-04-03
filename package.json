@@ -1,6 +1,6 @@
 {
   "name": "mc-arm64",
-  "module": "index.ts",
+  "module": "src/main.ts",
   "type": "module",
   "private": true,
   "devDependencies": {
@@ -10,6 +10,8 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "@opentui/core": "^0.1.96"
+    "@opentui/core": "^0.1.96",
+    "arktype": "^2.2.0",
+    "errore": "^0.14.1"
   }
 }

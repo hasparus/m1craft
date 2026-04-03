@@ -3,6 +3,7 @@ import type {
   CurseForgeInstance,
   LaunchConfig,
   MojangLibrary,
+  VersionArgument,
   VersionJson,
 } from "./types.js";
 import { INSTALL, LWJGL_VERSION } from "./paths.js";
@@ -11,6 +12,20 @@ import { osMatches } from "./rules.js";
 
 async function loadJson<T>(path: string): Promise<T> {
   return Bun.file(path).json();
+}
+
+/** Flatten VersionArgument[] into string[], evaluating conditional entries via osMatches. */
+function flattenArgs(args: VersionArgument[]): string[] {
+  const result: string[] = [];
+  for (const arg of args) {
+    if (typeof arg === "string") {
+      result.push(arg);
+    } else if (osMatches(arg.rules)) {
+      if (typeof arg.value === "string") result.push(arg.value);
+      else result.push(...arg.value);
+    }
+  }
+  return result;
 }
 
 export async function resolveClasspath(
@@ -91,26 +106,26 @@ export async function resolveClasspath(
   // Parse Forge JVM args, resolve placeholders
   const jvmArgs: string[] = [];
   let modulePath = "";
-  const rawJvm = forge.arguments?.jvm ?? [];
+  const rawJvm = flattenArgs(forge.arguments?.jvm ?? []);
+
+  const resolvePlaceholders = (s: string) =>
+    s
+      .replace(/\$\{library_directory}/g, librariesDir)
+      .replace(/\$\{classpath_separator}/g, ":")
+      .replace(/\$\{version_name}/g, forgeName);
 
   for (let i = 0; i < rawJvm.length; i++) {
-    const resolve = (s: string) =>
-      s
-        .replace(/\$\{library_directory}/g, librariesDir)
-        .replace(/\$\{classpath_separator}/g, ":")
-        .replace(/\$\{version_name}/g, forgeName);
-
-    const arg = resolve(rawJvm[i]!);
+    const arg = resolvePlaceholders(rawJvm[i]!);
 
     if ((arg === "-p" || arg === "--module-path") && i + 1 < rawJvm.length) {
-      modulePath = resolve(rawJvm[i + 1]!);
+      modulePath = resolvePlaceholders(rawJvm[i + 1]!);
       i++;
       continue;
     }
     jvmArgs.push(arg);
   }
 
-  const gameArgs = forge.arguments?.game ?? [];
+  const gameArgs = flattenArgs(forge.arguments?.game ?? []);
   const assetIndex = forge.assets ?? base.assetIndex?.id ?? mcVersion;
   const mainClass = forge.mainClass ?? base.mainClass;
 

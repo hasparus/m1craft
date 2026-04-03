@@ -6,7 +6,7 @@
 - [x] M1: Auth (MS OAuth device code, cache-compatible with Python)
 - [x] M2: Classpath resolver (dynamic, regression-tested against hardcoded launch.sh)
 - [x] M3: Launcher (--dry-run verified, real launch untested with TS version)
-- [ ] M4: Config TUI (OpenTUI interactive screen)
+- [x] M4: Config TUI (OpenTUI interactive screen)
 - [ ] M5: Setup (port setup.sh to TS)
 - [ ] M6: Polish (bun build --compile, README update)
 
@@ -30,21 +30,6 @@ writes to the CurseForge directory.
 
 Run `bun src/main.ts launch` and verify the game boots.
 If it works, the TS version replaces the bash scripts.
-
-## M4: Config TUI
-
-Use @opentui/core to build an interactive config screen:
-
-```
-mc-arm64 config
-```
-
-- Select default instance (auto-discover from CurseForge Instances dir)
-- Set memory (-Xmx/-Xms)
-- Set window size
-- Set LWJGL override version
-- Saves to `~/.mc-arm64.json`
-- `launch` reads config as defaults, CLI flags override
 
 ## M5: Setup
 

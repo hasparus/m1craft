@@ -54,9 +54,11 @@ async function main() {
       await resolveCommand({ instance: values.instance });
       break;
     }
-    case "config":
-      console.log("TODO: config TUI");
+    case "config": {
+      const { configTui } = await import("./lib/config-tui.js");
+      await configTui();
       break;
+    }
     case "setup":
       console.log("TODO: setup");
       break;
