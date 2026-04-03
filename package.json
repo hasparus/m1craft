@@ -5,10 +5,12 @@
   "private": true,
   "scripts": {
     "build": "bun build src/main.ts --compile --minify --outfile mc-arm64",
-    "lint": "eslint src/"
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@hasparus/eslint-config": "^2.1.1",
+    "@redwoodjs/agent-ci": "^0.6.0",
     "@types/bun": "latest",
     "eslint": "^9"
   },

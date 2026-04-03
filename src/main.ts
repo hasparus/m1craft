@@ -1,6 +1,8 @@
 import { isTaggedError } from "errore";
 import { parseArgs } from "node:util";
 
+import { print, printError } from "./lib/cli.js";
+
 const { positionals, values } = parseArgs({
   allowPositionals: true,
   options: {
@@ -14,7 +16,7 @@ const { positionals, values } = parseArgs({
 const command = positionals[0];
 
 function printHelp() {
-  console.log(`mc-arm64 — Minecraft Forge on Apple Silicon
+  print(`mc-arm64 — Minecraft Forge on Apple Silicon
 
 Commands:
   launch    Launch Minecraft (default if no command given)
@@ -87,9 +89,9 @@ try {
           const { discoverInstances } = await import("./lib/config.js");
           const instances = await discoverInstances();
           if (instances.length > 0) {
-            console.error("");
-            console.error("  Welcome to mc-arm64! Let's pick your modpack first.");
-            console.error("");
+            printError("");
+            printError("  Welcome to mc-arm64! Let's pick your modpack first.");
+            printError("");
             const { configTui } = await import("./lib/config-tui.js");
             await configTui();
           }
@@ -114,11 +116,11 @@ try {
       break;
     }
     default:
-      console.error(`Unknown command: ${command}`);
+      printError(`Unknown command: ${command}`);
       printHelp();
       process.exit(1);
   }
 } catch (error) {
-  console.error(`\n  Error: ${formatError(error)}\n`);
+  printError(`\n  Error: ${formatError(error)}\n`);
   process.exit(1);
 }

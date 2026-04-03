@@ -1,6 +1,7 @@
 import { join } from "node:path";
 
 import { authenticate } from "./auth.js";
+import { print, printError } from "./cli.js";
 import { loadConfig } from "./config.js";
 import { LaunchError } from "./errors.js";
 import { findZuluJavaBin } from "./java.js";
@@ -20,11 +21,11 @@ export async function launch(opts: { dryRun?: boolean; instance?: string; }) {
   if (!java) throw new LaunchError({ message: `Zulu ${javaVersion} ARM not found. Run 'mc-arm64 setup' first.` });
 
   const auth = await authenticate();
-  console.error(`Auth: ${auth.username} (${auth.uuid.slice(0, 8)}...)`);
+  printError(`Auth: ${auth.username} (${auth.uuid.slice(0, 8)}...)`);
 
   const lwjglVersion = config.lwjglVersion ?? LWJGL_VERSION;
   const resolved = await resolveClasspath(instanceDir, INSTALL, lwjglVersion);
-  console.error(`Launching ${resolved.forgeName}...`);
+  printError(`Launching ${resolved.forgeName}...`);
 
   const xmx = config.xmx ?? "8192m";
   const xms = config.xms ?? "256m";
@@ -70,7 +71,7 @@ export async function launch(opts: { dryRun?: boolean; instance?: string; }) {
     const redacted = cmd.map((arg, i) =>
       cmd[i - 1] === "--accessToken" ? "<REDACTED>" : arg
     );
-    console.log(redacted.join(" \\\n  "));
+    print(redacted.join(" \\\n  "));
     return;
   }
 

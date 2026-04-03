@@ -4,6 +4,7 @@ import { chmod } from "node:fs/promises";
 
 import type { AuthCache, AuthResult } from "./types.js";
 
+import { print, printError } from "./cli.js";
 import { AuthError, HttpError, ValidationError, XboxError } from "./errors.js";
 import { AUTH_CACHE_PATH } from "./paths.js";
 
@@ -71,7 +72,7 @@ function postForm(
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     method: "POST",
     signal: AbortSignal.timeout(TIMEOUT),
-  }).catch((error) => new HttpError({ cause: error, method: "POST", status: `${error}`, url }));
+  }).catch((error) => new HttpError({ cause: error, method: "POST", status: String(error), url }));
 }
 
 function postJson(
@@ -83,7 +84,7 @@ function postJson(
     headers: { Accept: "application/json", "Content-Type": "application/json" },
     method: "POST",
     signal: AbortSignal.timeout(TIMEOUT),
-  }).catch((error) => new HttpError({ cause: error, method: "POST", status: `${error}`, url }));
+  }).catch((error) => new HttpError({ cause: error, method: "POST", status: String(error), url }));
 }
 
 function getJson(
@@ -91,7 +92,7 @@ function getJson(
   headers: Record<string, string>,
 ): Promise<HttpError | Response> {
   return fetch(url, { headers, signal: AbortSignal.timeout(TIMEOUT) }).catch(
-    (error) => new HttpError({ cause: error, method: "GET", status: `${error}`, url }),
+    (error) => new HttpError({ cause: error, method: "GET", status: String(error), url }),
   );
 }
 
@@ -124,7 +125,7 @@ function promptDeviceLogin(userCode: string, verificationUri: string) {
     "  └─────────────────────────────────────────────┘",
     "",
   ];
-  for (const line of box) console.error(line);
+  for (const line of box) printError(line);
   Bun.spawn(["open", `${verificationUri}?otc=${userCode}`]);
 }
 
@@ -140,7 +141,7 @@ async function deviceCodeFlow(): Promise<
 
   if (!res.ok) {
     return new AuthError({
-      cause: new HttpError({ method: "POST", status: `${res.status}`, url: res.url }),
+      cause: new HttpError({ method: "POST", status: String(res.status), url: res.url }),
       message: `Device code request failed (${res.status})`,
     });
   }
@@ -209,7 +210,7 @@ async function refreshMsToken(
 
   if (!res.ok) {
     return new AuthError({
-      cause: new HttpError({ method: "POST", status: `${res.status}`, url: res.url }),
+      cause: new HttpError({ method: "POST", status: String(res.status), url: res.url }),
       message: `Token refresh failed (${res.status})`,
     });
   }
@@ -238,7 +239,7 @@ async function msToMinecraft(msToken: string): Promise<
   if (isError(xblRes)) return new AuthError({ cause: xblRes, message: xblRes.message });
   if (!xblRes.ok) {
     return new AuthError({
-      cause: new HttpError({ method: "POST", status: `${xblRes.status}`, url: xblRes.url }),
+      cause: new HttpError({ method: "POST", status: String(xblRes.status), url: xblRes.url }),
       message: `Xbox Live auth failed (${xblRes.status})`,
     });
   }
@@ -264,7 +265,7 @@ async function msToMinecraft(msToken: string): Promise<
       return new XboxError({ reason });
     }
     return new AuthError({
-      cause: new HttpError({ method: "POST", status: `${xstsRes.status}`, url: xstsRes.url }),
+      cause: new HttpError({ method: "POST", status: String(xstsRes.status), url: xstsRes.url }),
       message: `XSTS auth failed (${xstsRes.status})`,
     });
   }
@@ -284,7 +285,7 @@ async function msToMinecraft(msToken: string): Promise<
   if (isError(mcRes)) return new AuthError({ cause: mcRes, message: mcRes.message });
   if (!mcRes.ok) {
     return new AuthError({
-      cause: new HttpError({ method: "POST", status: `${mcRes.status}`, url: mcRes.url }),
+      cause: new HttpError({ method: "POST", status: String(mcRes.status), url: mcRes.url }),
       message: `Minecraft login failed (${mcRes.status})`,
     });
   }
@@ -303,7 +304,7 @@ async function msToMinecraft(msToken: string): Promise<
   if (isError(profRes)) return new AuthError({ cause: profRes, message: profRes.message });
   if (!profRes.ok) {
     return new AuthError({
-      cause: new HttpError({ method: "GET", status: `${profRes.status}`, url: profRes.url }),
+      cause: new HttpError({ method: "GET", status: String(profRes.status), url: profRes.url }),
       message: `Minecraft profile fetch failed (${profRes.status})`,
     });
   }
@@ -345,10 +346,10 @@ export async function authenticate(): Promise<AuthResult> {
   // Try refresh, fall back to device code
   let msResult: [string, string] | AuthError;
   if (cache.refresh_token) {
-    console.error("Refreshing login...");
+    printError("Refreshing login...");
     msResult = await refreshMsToken(cache.refresh_token);
     if (isError(msResult)) {
-      console.error("Session expired, need to sign in again.");
+      printError("Session expired, need to sign in again.");
       msResult = await deviceCodeFlow();
     }
   } else {
@@ -377,15 +378,15 @@ export async function authCommand(opts: { check?: boolean }) {
     const cache = await loadCache();
     if (cache.access_token && (cache.expires_at ?? 0) > Date.now() / 1000 + 60) {
       const expires = new Date((cache.expires_at ?? 0) * 1000).toISOString();
-      console.log(`Token valid. ${cache.username} (${cache.uuid?.slice(0, 8)}...) expires ${expires}`);
+      print(`Token valid. ${cache.username} (${cache.uuid?.slice(0, 8)}...) expires ${expires}`);
     } else if (cache.refresh_token) {
-      console.log("Token expired but refresh token available.");
+      print("Token expired but refresh token available.");
     } else {
-      console.log("No cached auth. Run 'mc-arm64 auth' to log in.");
+      print("No cached auth. Run 'mc-arm64 auth' to log in.");
     }
     return;
   }
 
   const result = await authenticate();
-  console.log(`Authenticated as ${result.username} (${result.uuid})`);
+  print(`Authenticated as ${result.username} (${result.uuid})`);
 }

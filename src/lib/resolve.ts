@@ -7,6 +7,7 @@ import type {
   VersionArgument,
 } from "./types.js";
 
+import { print } from "./cli.js";
 import { parseMaven } from "./maven.js";
 import { INSTALL, LWJGL_VERSION } from "./paths.js";
 import { osMatches } from "./rules.js";
@@ -165,5 +166,5 @@ export async function resolveCommand(opts: { instance?: string }) {
   const { DEFAULT_INSTANCE } = await import("./paths.js");
   const instanceDir = opts.instance ?? DEFAULT_INSTANCE;
   const config = await resolveClasspath(instanceDir);
-  console.log(JSON.stringify(config, null, 2));
+  print(JSON.stringify(config, null, 2));
 }
