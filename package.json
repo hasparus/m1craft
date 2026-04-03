@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "build": "bun build src/main.ts --compile --minify --outfile m1craft",
+    "package": "bun run build && zip -j m1craft-macos-arm64.zip m1craft README.md",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit"
   },

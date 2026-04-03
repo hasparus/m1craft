@@ -13,10 +13,9 @@ Prerequisites:
 
 ### Option A: Pre-built binary (no dependencies)
 
-Download `m1craft` from [Releases](https://github.com/hasparus/m1craft/releases), then:
+Download `m1craft-macos-arm64.zip` from [Releases](https://github.com/hasparus/m1craft/releases), extract it, then:
 
 ```bash
-chmod +x m1craft
 ./m1craft setup
 ./m1craft
 ```
@@ -35,7 +34,7 @@ bun src/main.ts setup
 bun src/main.ts
 ```
 
-Build a standalone binary with `bun run build`.
+Build a standalone binary with `bun run build`. Build the release zip with `bun run package`.
 
 ## Usage
 
