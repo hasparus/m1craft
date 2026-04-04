@@ -12,7 +12,7 @@ import type { MojangLibraryRule } from "./types.js";
  * - Arch "aarch64" matches ARM64 (this is what we're running on)
  */
 export function osMatches(rules?: MojangLibraryRule[]): boolean {
-  if (!rules) return true;
+  if (!rules || rules.length === 0) return true;
 
   let result = false;
   for (const rule of rules) {

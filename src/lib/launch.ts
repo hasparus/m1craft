@@ -88,11 +88,10 @@ export async function launch(opts: { dryRun?: boolean; instance?: string; }, cal
     return;
   }
 
-  // Spawn Java detached and exit — don't hog RAM while MC runs
+  // Spawn Java detached — don't hog RAM while MC runs
   const proc = Bun.spawn(cmd, {
     cwd: instanceDir,
     stdio: ["inherit", "inherit", "inherit"],
   });
   proc.unref();
-  process.exit(0);
 }

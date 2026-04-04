@@ -5,7 +5,7 @@ import { osMatches } from "./rules.js";
 describe("osMatches", () => {
   test("no rules → include", () => {
     expect(osMatches()).toBe(true);
-    expect(osMatches([])).toBe(false); // empty rules array, result stays false
+    expect(osMatches([])).toBe(true); // empty rules = no rules = include everywhere
   });
 
   test("unconditional allow", () => {
