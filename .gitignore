@@ -1,3 +1,5 @@
 .DS_Store
 node_modules/
 mc-arm64
+m1craft
+*.zip
