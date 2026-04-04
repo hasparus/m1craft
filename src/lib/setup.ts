@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { SpinnerRenderable } from "opentui-spinner";
 
 import { findZuluJavaBin, JAVA_DIR } from "./java.js";
+import { makeStepRow, type StepRow } from "./launch-tui.js";
 import { INSTALL, LWJGL_VERSION, NATIVES_DIR } from "./paths.js";
 
 const ACCENT = "#2563eb";
@@ -264,24 +265,6 @@ interface SetupTUI {
   renderer: CliRenderer;
   showProgress(visible: boolean): void;
   statusLine: TextRenderable;
-}
-
-interface StepRow {
-  icon: TextRenderable;
-  row: BoxRenderable;
-  text: TextRenderable;
-}
-
-function makeStepRow(renderer: CliRenderer, root: BoxRenderable, id: string, label: string): StepRow {
-  const row = new BoxRenderable(renderer, {
-    flexDirection: "row", gap: 1, height: 1, id: `${id}-row`, width: "100%",
-  });
-  const icon = new TextRenderable(renderer, { content: " · ", height: 1, id: `${id}-icon`, width: 3 });
-  const text = new TextRenderable(renderer, { content: label, height: 1, id: `${id}-text` });
-  row.add(icon);
-  row.add(text);
-  root.add(row);
-  return { icon, row, text };
 }
 
 async function createSetupTUI(javaVersion: string): Promise<{ steps: [StepRow, StepRow, StepRow]; tui: SetupTUI; }> {
