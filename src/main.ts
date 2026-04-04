@@ -98,8 +98,9 @@ try {
       }
 
       if (values["dry-run"]) {
-        const { launch } = await import("./lib/launch.js");
-        await launch({ dryRun: true, instance: values.instance });
+        const { prepareLaunch, redactCmd } = await import("./lib/launch.js");
+        const result = await prepareLaunch({ instance: values.instance });
+        console.log(redactCmd(result.cmd).join(" \\\n  "));
       } else {
         const { launchWithTui } = await import("./lib/launch-tui.js");
         await launchWithTui({ instance: values.instance });

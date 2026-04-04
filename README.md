@@ -92,9 +92,8 @@ All fields are optional. CLI flags override config values.
 
 ## Limitations
 
-- **Forge 1.18.2 only.** Other Forge versions need different library versions and may use argument formats not yet handled.
-- **CurseForge Forge updates will break it.** If CurseForge updates Forge for your modpack, run `m1craft setup` again.
-- Some JVM flags (e.g. `-XstartOnFirstThread`) are hardcoded for macOS.
+- **CurseForge modpacks only.** Reads `minecraftinstance.json` for Forge version detection. Other launchers may work if they use the same directory layout.
+- JVM flags (e.g. `-XstartOnFirstThread`) are macOS-specific.
 
 ## Prior art
 

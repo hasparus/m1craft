@@ -1,6 +1,7 @@
 import { join } from "node:path";
 
 import type { AuthCallbacks } from "./auth.js";
+import type { AuthResult } from "./types.js";
 
 import { authenticate } from "./auth.js";
 import { loadConfig } from "./config.js";
@@ -16,7 +17,18 @@ export interface LaunchCallbacks {
   onStep?: (step: LaunchStep, detail?: string) => void;
 }
 
-export async function launch(opts: { dryRun?: boolean; instance?: string; }, callbacks?: LaunchCallbacks) {
+export interface LaunchResult {
+  auth: AuthResult;
+  cmd: string[];
+  forgeName: string;
+  instanceDir: string;
+}
+
+/** Resolve everything needed to launch Minecraft. Does not spawn or print. */
+export async function prepareLaunch(
+  opts: { instance?: string; },
+  callbacks?: LaunchCallbacks,
+): Promise<LaunchResult> {
   callbacks?.onStep?.("config");
   const config = await loadConfig();
 
@@ -32,13 +44,11 @@ export async function launch(opts: { dryRun?: boolean; instance?: string; }, cal
 
   callbacks?.onStep?.("auth");
   const auth = await authenticate(callbacks?.auth);
-  if (!callbacks) console.error(`Auth: ${auth.username} (${auth.uuid.slice(0, 8)}...)`);
 
   callbacks?.onStep?.("classpath");
   const lwjglVersion = config.lwjglVersion ?? LWJGL_VERSION;
   const resolved = await resolveClasspath(instanceDir, INSTALL, lwjglVersion);
   callbacks?.onStep?.("launch", resolved.forgeName);
-  if (!callbacks) console.error(`Launching ${resolved.forgeName}...`);
 
   const xmx = config.xmx ?? "8192m";
   const xms = config.xms ?? "256m";
@@ -80,18 +90,12 @@ export async function launch(opts: { dryRun?: boolean; instance?: string; }, cal
     ...resolved.gameArgs,
   ];
 
-  if (opts.dryRun) {
-    const redacted = cmd.map((arg, i) =>
-      cmd[i - 1] === "--accessToken" ? "<REDACTED>" : arg
-    );
-    console.log(redacted.join(" \\\n  "));
-    return;
-  }
+  return { auth, cmd, forgeName: resolved.forgeName, instanceDir };
+}
 
-  // Spawn Java detached — don't hog RAM while MC runs
-  const proc = Bun.spawn(cmd, {
-    cwd: instanceDir,
-    stdio: ["inherit", "inherit", "inherit"],
-  });
-  proc.unref();
+/** Redact the access token from a command array for display. */
+export function redactCmd(cmd: string[]): string[] {
+  return cmd.map((arg, i) =>
+    cmd[i - 1] === "--accessToken" ? "<REDACTED>" : arg
+  );
 }
