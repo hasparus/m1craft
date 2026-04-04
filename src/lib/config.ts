@@ -1,3 +1,4 @@
+import { type } from "arktype";
 import { join } from "node:path";
 
 import type { UserConfig } from "./types.js";
@@ -10,13 +11,28 @@ import {
   LEGACY_CONFIG_PATH,
 } from "./paths.js";
 
+const UserConfigSchema = type({
+  "defaultInstance?": "string",
+  "height?": "number",
+  "javaVersion?": "string",
+  "lwjglVersion?": "string",
+  "width?": "number",
+  "xms?": "string",
+  "xmx?": "string",
+});
+
+function parseConfig(raw: unknown): UserConfig {
+  const result = UserConfigSchema(raw);
+  return result instanceof type.errors ? {} : result;
+}
+
 export async function loadConfig(path = getConfigPath()): Promise<UserConfig> {
   try {
-    return await Bun.file(path).json();
+    return parseConfig(await Bun.file(path).json());
   } catch {
     if (path === CONFIG_PATH && !hasConfigPathOverride()) {
       try {
-        return await Bun.file(LEGACY_CONFIG_PATH).json();
+        return parseConfig(await Bun.file(LEGACY_CONFIG_PATH).json());
       } catch { /* fall through */ }
     }
     return {};

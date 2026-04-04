@@ -132,14 +132,14 @@ async function stepJava(ui: StepUI, javaVersion: string): Promise<string> {
 
   const apiUrl =
     `https://api.azul.com/metadata/v1/zulu/packages/?java_version=${javaVersion}&os=macos&arch=arm&archive_type=tar.gz&java_package_type=jdk&latest=true&crac_supported=false`;
-  const pkgs = (await fetch(apiUrl).then((r) => r.json())) as {
-    download_url: string;
-    name: string;
-  }[];
+  const raw = await fetch(apiUrl).then((r) => r.json());
+  if (!Array.isArray(raw)) throw new Error(`Azul API returned non-array response`);
+  const pkgs = raw as { download_url?: string; name?: string; }[];
   const pkg = pkgs.find(
-    (p) => !p.name.includes("fx") && !p.name.includes("crac"),
+    (p) => typeof p.name === "string" && typeof p.download_url === "string"
+      && !p.name.includes("fx") && !p.name.includes("crac"),
   );
-  if (!pkg) throw new Error(`Could not find Zulu ${javaVersion} ARM from Azul API`);
+  if (!pkg?.download_url) throw new Error(`Could not find Zulu ${javaVersion} ARM from Azul API`);
 
   ui.setStatus("↓", `${label} — downloading...`);
   const tarPath = `/tmp/zulu${javaVersion}-arm.tar.gz`;
