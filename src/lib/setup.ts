@@ -223,7 +223,7 @@ async function stepNatives(ui: StepUI): Promise<void> {
       stderr: "ignore",
       stdout: "ignore",
     });
-    await unzip.exited;
+    if ((await unzip.exited) !== 0) throw new Error(`Failed to extract natives from ${lib}`);
   }
 
   const src = join(tmpDir, "macos/arm64/org/lwjgl");
@@ -242,7 +242,7 @@ async function stepNatives(ui: StepUI): Promise<void> {
     ["cp", "-R", `${src}/`, join(NATIVES_DIR, "macos/arm64/org/lwjgl/")],
     { stdio: ["ignore", "ignore", "ignore"] },
   );
-  await cpTree.exited;
+  if ((await cpTree.exited) !== 0) throw new Error("Failed to copy native library tree");
 
   const jcocoaJar = join(INSTALL, "libraries/ca/weblite/java-objc-bridge/1.1/java-objc-bridge-1.1.jar");
   if (await Bun.file(jcocoaJar).exists()) {
@@ -250,7 +250,7 @@ async function stepNatives(ui: StepUI): Promise<void> {
       ["unzip", "-o", jcocoaJar, "libjcocoa.dylib", "-d", NATIVES_DIR],
       { stderr: "ignore", stdout: "ignore" },
     );
-    await unzip.exited;
+    if ((await unzip.exited) !== 0) throw new Error("Failed to extract libjcocoa.dylib");
   }
 
   Bun.spawn(["rm", "-rf", tmpDir]);

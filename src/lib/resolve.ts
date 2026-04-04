@@ -42,7 +42,8 @@ async function loadVersionJson(path: string) {
   const raw = await Bun.file(path).json();
   const result = VersionJsonSchema(raw);
   if (result instanceof type.errors) throw new Error(`Invalid version JSON at ${path}: ${result.summary}`);
-  // Cast libraries/arguments to proper types since arktype validated structure
+  // arktype validated top-level shape; inner arrays typed as unknown to avoid
+  // duplicating Mojang's deeply nested types. Cast safe post-validation.
   return result as unknown as { arguments?: { game?: VersionArgument[]; jvm?: VersionArgument[]; }; assetIndex?: { id: string }; assets?: string; libraries: MojangLibrary[]; mainClass: string; };
 }
 

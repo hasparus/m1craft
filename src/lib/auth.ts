@@ -24,6 +24,14 @@ const MC_LOGIN_URL = "https://api.minecraftservices.com/authentication/login_wit
 const MC_PROFILE_URL = "https://api.minecraftservices.com/minecraft/profile";
 
 
+const AuthCacheSchema = type({
+  "access_token?": "string",
+  "expires_at?": "number",
+  "refresh_token?": "string",
+  "username?": "string",
+  "uuid?": "string",
+});
+
 const DeviceCodeResponse = type({
   device_code: "string",
   interval: "number",
@@ -324,14 +332,19 @@ async function msToMinecraft(msToken: string): Promise<
 }
 
 
+function parseCache(raw: unknown): Partial<AuthCache> {
+  const result = AuthCacheSchema(raw);
+  return result instanceof type.errors ? {} : result;
+}
+
 async function loadCache(): Promise<Partial<AuthCache>> {
   const cachePath = getAuthCachePath();
   try {
-    return await Bun.file(cachePath).json();
+    return parseCache(await Bun.file(cachePath).json());
   } catch {
     if (cachePath === AUTH_CACHE_PATH && !hasAuthCachePathOverride()) {
       try {
-        return await Bun.file(LEGACY_AUTH_CACHE_PATH).json();
+        return parseCache(await Bun.file(LEGACY_AUTH_CACHE_PATH).json());
       } catch { /* fall through */ }
     }
     return {};
