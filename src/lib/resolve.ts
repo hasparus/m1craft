@@ -7,6 +7,7 @@ import type {
   VersionArgument,
 } from "./types.js";
 
+import { ResolveError } from "./errors.js";
 import { parseMaven } from "./maven.js";
 import { INSTALL, LWJGL_VERSION } from "./paths.js";
 import { osMatches } from "./rules.js";
@@ -34,14 +35,14 @@ const VersionJsonSchema = type({
 async function loadCurseForgeInstance(path: string) {
   const raw = await Bun.file(path).json();
   const result = CurseForgeInstanceSchema(raw);
-  if (result instanceof type.errors) throw new Error(`Invalid CurseForge instance at ${path}: ${result.summary}`);
+  if (result instanceof type.errors) throw new ResolveError({ message: `Invalid CurseForge instance at ${path}: ${result.summary}` });
   return result;
 }
 
 async function loadVersionJson(path: string) {
   const raw = await Bun.file(path).json();
   const result = VersionJsonSchema(raw);
-  if (result instanceof type.errors) throw new Error(`Invalid version JSON at ${path}: ${result.summary}`);
+  if (result instanceof type.errors) throw new ResolveError({ message: `Invalid version JSON at ${path}: ${result.summary}` });
   // arktype validated top-level shape; inner arrays typed as unknown to avoid
   // duplicating Mojang's deeply nested types. Cast safe post-validation.
   return result as unknown as { arguments?: { game?: VersionArgument[]; jvm?: VersionArgument[]; }; assetIndex?: { id: string }; assets?: string; libraries: MojangLibrary[]; mainClass: string; };

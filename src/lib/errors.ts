@@ -24,3 +24,13 @@ export class LaunchError extends createTaggedError({
   message: "$message",
   name: "LaunchError",
 }) {}
+
+export class SetupError extends createTaggedError({
+  message: "$message",
+  name: "SetupError",
+}) {}
+
+export class ResolveError extends createTaggedError({
+  message: "$message",
+  name: "ResolveError",
+}) {}

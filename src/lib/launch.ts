@@ -26,12 +26,13 @@ export interface LaunchResult {
 
 /** Resolve everything needed to launch Minecraft. Does not spawn or print. */
 export async function prepareLaunch(
-  opts: { instance?: string; },
+  opts: { installDir?: string; instance?: string; },
   callbacks?: LaunchCallbacks,
 ): Promise<LaunchResult> {
   callbacks?.onStep?.("config");
   const config = await loadConfig();
 
+  const installDir = opts.installDir ?? INSTALL;
   const instanceDir = opts.instance
     ?? (config.defaultInstance
       ? join(CF_BASE, "Instances", config.defaultInstance)
@@ -47,7 +48,7 @@ export async function prepareLaunch(
 
   callbacks?.onStep?.("classpath");
   const lwjglVersion = config.lwjglVersion ?? LWJGL_VERSION;
-  const resolved = await resolveClasspath(instanceDir, INSTALL, lwjglVersion);
+  const resolved = await resolveClasspath(instanceDir, installDir, lwjglVersion);
   callbacks?.onStep?.("launch", resolved.forgeName);
 
   const xmx = config.xmx ?? "8192m";
@@ -80,7 +81,7 @@ export async function prepareLaunch(
     "--username", auth.username,
     "--version", resolved.forgeName,
     "--gameDir", instanceDir,
-    "--assetsDir", join(INSTALL, "assets"),
+    "--assetsDir", join(installDir, "assets"),
     "--assetIndex", resolved.assetIndex,
     "--uuid", auth.uuid,
     "--accessToken", auth.accessToken,

@@ -9,6 +9,7 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { SpinnerRenderable } from "opentui-spinner";
 
+import { SetupError } from "./errors.js";
 import { findZuluJavaBin, JAVA_DIR } from "./java.js";
 import { makeStepRow, RENDERER_TEARDOWN_MS, type StepRow } from "./launch-tui.js";
 import { INSTALL, LWJGL_VERSION, NATIVES_DIR } from "./paths.js";
@@ -52,7 +53,7 @@ async function downloadWithProgress(
   onProgress?: (downloaded: number, total: number) => void,
 ): Promise<void> {
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`Download failed (${res.status}): ${url}`);
+  if (!res.ok) throw new SetupError({ message: `Download failed (${res.status}): ${url}` });
 
   const total = Number(res.headers.get("content-length") ?? 0);
   if (!res.body || total === 0) {
@@ -134,13 +135,13 @@ async function stepJava(ui: StepUI, javaVersion: string): Promise<string> {
   const apiUrl =
     `https://api.azul.com/metadata/v1/zulu/packages/?java_version=${javaVersion}&os=macos&arch=arm&archive_type=tar.gz&java_package_type=jdk&latest=true&crac_supported=false`;
   const raw = await fetch(apiUrl).then((r) => r.json());
-  if (!Array.isArray(raw)) throw new Error(`Azul API returned non-array response`);
+  if (!Array.isArray(raw)) throw new SetupError({ message: "Azul API returned non-array response" });
   const pkgs = raw as { download_url?: string; name?: string; }[];
   const pkg = pkgs.find(
     (p) => typeof p.name === "string" && typeof p.download_url === "string"
       && !p.name.includes("fx") && !p.name.includes("crac"),
   );
-  if (!pkg?.download_url) throw new Error(`Could not find Zulu ${javaVersion} ARM from Azul API`);
+  if (!pkg?.download_url) throw new SetupError({ message: `Could not find Zulu ${javaVersion} ARM from Azul API` });
 
   ui.setStatus("↓", `${label} — downloading...`);
   const tarPath = `/tmp/zulu${javaVersion}-arm.tar.gz`;
@@ -154,11 +155,11 @@ async function stepJava(ui: StepUI, javaVersion: string): Promise<string> {
   const extract = Bun.spawn(["tar", "xzf", tarPath, "-C", JAVA_DIR], {
     stdio: ["ignore", "ignore", "ignore"],
   });
-  if ((await extract.exited) !== 0) throw new Error("Failed to extract JDK");
+  if ((await extract.exited) !== 0) throw new SetupError({ message: "Failed to extract JDK" });
   await Bun.file(tarPath).unlink();
 
   const javaBin = await findZuluJavaBin(javaVersion);
-  if (!javaBin) throw new Error("JDK extraction succeeded but not found");
+  if (!javaBin) throw new SetupError({ message: "JDK extraction succeeded but not found" });
 
   ui.setStatus("✓", `${label} — installed`);
   return javaBin;
@@ -224,7 +225,7 @@ async function stepNatives(ui: StepUI): Promise<void> {
       stderr: "ignore",
       stdout: "ignore",
     });
-    if ((await unzip.exited) !== 0) throw new Error(`Failed to extract natives from ${lib}`);
+    if ((await unzip.exited) !== 0) throw new SetupError({ message: `Failed to extract natives from ${lib}` });
   }
 
   const src = join(tmpDir, "macos/arm64/org/lwjgl");
@@ -243,7 +244,7 @@ async function stepNatives(ui: StepUI): Promise<void> {
     ["cp", "-R", `${src}/`, join(NATIVES_DIR, "macos/arm64/org/lwjgl/")],
     { stdio: ["ignore", "ignore", "ignore"] },
   );
-  if ((await cpTree.exited) !== 0) throw new Error("Failed to copy native library tree");
+  if ((await cpTree.exited) !== 0) throw new SetupError({ message: "Failed to copy native library tree" });
 
   const jcocoaJar = join(INSTALL, "libraries/ca/weblite/java-objc-bridge/1.1/java-objc-bridge-1.1.jar");
   if (await Bun.file(jcocoaJar).exists()) {
@@ -251,7 +252,7 @@ async function stepNatives(ui: StepUI): Promise<void> {
       ["unzip", "-o", jcocoaJar, "libjcocoa.dylib", "-d", NATIVES_DIR],
       { stderr: "ignore", stdout: "ignore" },
     );
-    if ((await unzip.exited) !== 0) throw new Error("Failed to extract libjcocoa.dylib");
+    if ((await unzip.exited) !== 0) throw new SetupError({ message: "Failed to extract libjcocoa.dylib" });
   }
 
   Bun.spawn(["rm", "-rf", tmpDir]);
