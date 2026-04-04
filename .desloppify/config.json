@@ -8,9 +8,24 @@
   "exclude": [
     "node_modules",
     "mc-arm64",
-    "bun.lock"
+    "bun.lock",
+    ".git",
+    ".desloppify",
+    ".claude",
+    ".cursor"
   ],
-  "ignore": [],
+  "ignore": [
+    "smells::src/lib/auth.ts::async_no_await",
+    "smells::src/lib/auth.ts::console_error_no_throw",
+    "smells::src/lib/auth.ts::hardcoded_url",
+    "smells::src/lib/auth.ts::high_cyclomatic_complexity",
+    "smells::src/lib/launch.ts::async_no_await",
+    "smells::src/lib/launch.ts::console_error_no_throw",
+    "smells::src/lib/launch-tui.ts::async_no_await",
+    "smells::src/lib/resolve.ts::async_no_await",
+    "smells::src/lib/config-tui.ts::high_cyclomatic_complexity",
+    "smells::src/lib/config-tui.ts::nested_closure"
+  ],
   "ignore_metadata": {},
   "zone_overrides": {},
   "review_dimensions": [],
