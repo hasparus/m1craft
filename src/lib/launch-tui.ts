@@ -11,7 +11,6 @@ import type { LaunchCallbacks, LaunchStep } from "./launch.js";
 
 const ACCENT = "#2563eb";
 
-// -- Step row (matches setup.ts visual language) --
 
 interface StepRow {
   icon: TextRenderable;
@@ -51,7 +50,6 @@ function setStepStatus(renderer: CliRenderer, step: StepRow, icon: string, label
   }
 }
 
-// -- Device code login box --
 
 function showDeviceCodeBox(
   renderer: CliRenderer,
@@ -87,7 +85,6 @@ function showDeviceCodeBox(
   return box;
 }
 
-// -- Main TUI --
 
 export async function launchWithTui(opts: { dryRun?: boolean; instance?: string; }) {
   const renderer = await createCliRenderer({ exitOnCtrlC: true, useMouse: false });

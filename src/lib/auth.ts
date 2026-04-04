@@ -23,7 +23,6 @@ const XSTS_AUTH_URL = "https://xsts.auth.xboxlive.com/xsts/authorize";
 const MC_LOGIN_URL = "https://api.minecraftservices.com/authentication/login_with_xbox";
 const MC_PROFILE_URL = "https://api.minecraftservices.com/minecraft/profile";
 
-// -- Response schemas --
 
 const DeviceCodeResponse = type({
   device_code: "string",
@@ -65,7 +64,6 @@ const McProfileResponse = type({
   name: "string",
 });
 
-// -- HTTP helpers --
 
 function postForm(
   url: string,
@@ -104,7 +102,6 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// -- Auth flows --
 
 const XBOX_ERROR_REASONS: Record<number, string> = {
   2_148_916_233: "this Microsoft account has no Xbox account — sign up at xbox.com first",
@@ -326,7 +323,6 @@ async function msToMinecraft(msToken: string): Promise<
   return { expiresAt, mcToken: mc.access_token, username: prof.name, uuid: prof.id };
 }
 
-// -- Cache --
 
 async function loadCache(): Promise<Partial<AuthCache>> {
   const cachePath = getAuthCachePath();
@@ -348,7 +344,6 @@ async function saveCache(data: AuthCache) {
   await chmod(cachePath, 0o600);
 }
 
-// -- Public API --
 
 export interface AuthCallbacks {
   onDeviceCode?: (userCode: string, verificationUri: string) => void;
@@ -359,9 +354,9 @@ export async function authenticate(callbacks?: AuthCallbacks): Promise<AuthResul
   const cache = await loadCache();
 
   // Try cached token
-  if (cache.access_token && (cache.expires_at ?? 0) > Date.now() / 1000 + 60) {
+  if (cache.access_token && cache.username && cache.uuid && (cache.expires_at ?? 0) > Date.now() / 1000 + 60) {
     callbacks?.onStatus?.("cached", cache.username);
-    return { accessToken: cache.access_token, username: cache.username!, uuid: cache.uuid! };
+    return { accessToken: cache.access_token, username: cache.username, uuid: cache.uuid };
   }
 
   // Try refresh, fall back to device code

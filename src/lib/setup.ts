@@ -38,7 +38,6 @@ const NATIVE_DYLIB_MAP: Record<string, string> = {
   "lwjgl-tinyfd": "tinyfd/liblwjgl_tinyfd.dylib",
 };
 
-// -- Download helper with progress --
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -82,7 +81,6 @@ async function downloadWithProgress(
   await Bun.write(destPath, combined);
 }
 
-// -- Check --
 
 export interface SetupStatus {
   jarsFound: boolean;
@@ -106,7 +104,6 @@ export async function checkSetup(javaVersion = DEFAULT_JAVA_VERSION): Promise<Se
   return { jarsFound, javaFound, nativesFound };
 }
 
-// -- Setup steps --
 
 interface StepUI {
   clearProgress(): void;
@@ -260,7 +257,6 @@ async function stepNatives(ui: StepUI): Promise<void> {
   ui.setStatus("✓", "ARM64 natives — installed");
 }
 
-// -- TUI --
 
 interface SetupTUI {
   alive: boolean;
