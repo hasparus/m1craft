@@ -11,6 +11,8 @@ import type { AuthCallbacks } from "./auth.js";
 import { type LaunchCallbacks, type LaunchStep, prepareLaunch, redactCmd } from "./launch.js";
 
 const ACCENT = "#2563eb";
+/** Let opentui flush its final frame before the process exits. */
+export const RENDERER_TEARDOWN_MS = 50;
 
 export interface StepRow {
   icon: TextRenderable;
@@ -177,7 +179,7 @@ export async function launchWithTui(opts: { dryRun?: boolean; instance?: string;
 
     if (opts.dryRun) {
       renderer.destroy();
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, RENDERER_TEARDOWN_MS));
       console.log(redactCmd(result.cmd).join(" \\\n  "));
       return;
     }
@@ -193,11 +195,11 @@ export async function launchWithTui(opts: { dryRun?: boolean; instance?: string;
       await new Promise((r) => setTimeout(r, 3000));
     }
     renderer.destroy();
-    await new Promise((r) => setTimeout(r, 50));
+    await new Promise((r) => setTimeout(r, RENDERER_TEARDOWN_MS));
     throw error;
   }
 
   if (alive) await new Promise((r) => setTimeout(r, 1000));
   renderer.destroy();
-  await new Promise((r) => setTimeout(r, 50));
+  await new Promise((r) => setTimeout(r, RENDERER_TEARDOWN_MS));
 }

@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { SpinnerRenderable } from "opentui-spinner";
 
 import { findZuluJavaBin, JAVA_DIR } from "./java.js";
-import { makeStepRow, type StepRow } from "./launch-tui.js";
+import { makeStepRow, RENDERER_TEARDOWN_MS, type StepRow } from "./launch-tui.js";
 import { INSTALL, LWJGL_VERSION, NATIVES_DIR } from "./paths.js";
 
 const ACCENT = "#2563eb";
@@ -373,6 +373,6 @@ export async function runSetup(javaVersion = DEFAULT_JAVA_VERSION): Promise<void
     throw error;
   } finally {
     tui.renderer.destroy();
-    await new Promise((r) => setTimeout(r, 50));
+    await new Promise((r) => setTimeout(r, RENDERER_TEARDOWN_MS));
   }
 }
