@@ -6,7 +6,22 @@ on:
   pull_request:
 
 jobs:
-  ci:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install
+
+      - run: bun test ./**/*.unit.test.ts
+
+      - run: bun run lint
+
+      - run: bun run typecheck
+
+  integration:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,8 +30,4 @@ jobs:
 
       - run: bun install
 
-      - run: bun test
-
-      - run: bun run lint
-
-      - run: bun run typecheck
+      - run: bun test ./**/*.integration.test.ts
