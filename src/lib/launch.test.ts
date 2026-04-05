@@ -1,11 +1,11 @@
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import { type LaunchStep, prepareLaunch, redactCmd } from "./launch.js";
-import { AUTH_CACHE_PATH } from "./paths.js";
+// Auth cache path is overridden via M1CRAFT_AUTH_CACHE_PATH env in beforeAll
 import { installJava } from "./setup.js";
 
 // -- Fixtures (same structure as resolve.test.ts) --
@@ -37,8 +37,12 @@ const msw = setupServer(
   ),
 );
 
+const TEST_AUTH_CACHE = join(FIXTURE, "test-auth-cache.json");
+
 beforeAll(async () => {
   msw.listen({ onUnhandledRequest: "bypass" });
+  // Isolate auth cache so tests don't touch the real one
+  process.env["M1CRAFT_AUTH_CACHE_PATH"] = TEST_AUTH_CACHE;
 
   // Ensure Java is installed
   await installJava("17");
@@ -79,14 +83,17 @@ beforeAll(async () => {
   await Bun.write(join(INSTALL, "libraries/org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3.jar"), "");
 
   // Clear auth cache to force device code flow through msw
-  try { await Bun.file(AUTH_CACHE_PATH).unlink(); } catch { /* ok */ }
+  try { await Bun.file(TEST_AUTH_CACHE).unlink(); } catch { /* ok */ }
 }, 120_000);
 
+beforeEach(async () => {
+  try { await Bun.file(TEST_AUTH_CACHE).unlink(); } catch { /* ok */ }
+});
 afterEach(() => { msw.resetHandlers(); });
 afterAll(async () => {
   msw.close();
+  delete process.env["M1CRAFT_AUTH_CACHE_PATH"];
   await rm(FIXTURE, { force: true, recursive: true });
-  try { await Bun.file(AUTH_CACHE_PATH).unlink(); } catch { /* ok */ }
 });
 
 describe("prepareLaunch", () => {

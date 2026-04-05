@@ -407,20 +407,16 @@ export async function authenticate(callbacks?: AuthCallbacks): Promise<AuthResul
   return { accessToken: mcToken, username, uuid };
 }
 
-export async function authCommand(opts: { check?: boolean }) {
-  if (opts.check) {
-    const cache = await loadCache();
-    if (cache.access_token && (cache.expires_at ?? 0) > Date.now() / 1000 + 60) {
-      const expires = new Date((cache.expires_at ?? 0) * 1000).toISOString();
-      console.log(`Token valid. ${cache.username} (${cache.uuid?.slice(0, 8)}...) expires ${expires}`);
-    } else if (cache.refresh_token) {
-      console.log("Token expired but refresh token available.");
-    } else {
-      console.log("No cached auth. Run 'm1craft auth' to log in.");
-    }
-    return;
-  }
+export type AuthStatus =
+  | { status: "valid"; expires: string; username: string; uuid: string }
+  | { status: "expired" }
+  | { status: "none" };
 
-  const result = await authenticate();
-  console.log(`Authenticated as ${result.username} (${result.uuid})`);
+export async function checkAuthStatus(): Promise<AuthStatus> {
+  const cache = await loadCache();
+  if (cache.access_token && cache.username && cache.uuid && (cache.expires_at ?? 0) > Date.now() / 1000 + 60) {
+    return { expires: new Date((cache.expires_at ?? 0) * 1000).toISOString(), status: "valid", username: cache.username, uuid: cache.uuid };
+  }
+  if (cache.refresh_token) return { status: "expired" };
+  return { status: "none" };
 }

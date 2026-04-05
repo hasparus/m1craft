@@ -64,8 +64,17 @@ async function ensureSetup() {
 try {
   switch (command) {
     case "auth": {
-      const { authCommand } = await import("./lib/auth.js");
-      await authCommand({ check: values.check });
+      if (values.check) {
+        const { checkAuthStatus } = await import("./lib/auth.js");
+        const status = await checkAuthStatus();
+        if (status.status === "valid") console.log(`Token valid. ${status.username} (${status.uuid.slice(0, 8)}...) expires ${status.expires}`);
+        else if (status.status === "expired") console.log("Token expired but refresh token available.");
+        else console.log("No cached auth. Run 'm1craft auth' to log in.");
+      } else {
+        const { authenticate } = await import("./lib/auth.js");
+        const result = await authenticate();
+        console.log(`Authenticated as ${result.username} (${result.uuid})`);
+      }
       break;
     }
     case "config": {
@@ -108,8 +117,11 @@ try {
       break;
     }
     case "resolve": {
-      const { resolveCommand } = await import("./lib/resolve.js");
-      await resolveCommand({ instance: values.instance });
+      const { resolveClasspath } = await import("./lib/resolve.js");
+      const { DEFAULT_INSTANCE } = await import("./lib/paths.js");
+      const instanceDir = values.instance ?? DEFAULT_INSTANCE;
+      const config = await resolveClasspath(instanceDir);
+      console.log(JSON.stringify(config, null, 2));
       break;
     }
     case "setup": {

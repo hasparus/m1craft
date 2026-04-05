@@ -163,9 +163,3 @@ export async function resolveClasspath(
   };
 }
 
-export async function resolveCommand(opts: { instance?: string }) {
-  const { DEFAULT_INSTANCE } = await import("./paths.js");
-  const instanceDir = opts.instance ?? DEFAULT_INSTANCE;
-  const config = await resolveClasspath(instanceDir);
-  console.log(JSON.stringify(config, null, 2));
-}
