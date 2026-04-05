@@ -158,11 +158,12 @@ export async function launchWithTui(opts: { dryRun?: boolean; instance?: string;
   });
   root.add(new TextRenderable(renderer, { content: "m1craft", height: 2, id: "title" }));
 
+  // Order matches execution sequence in launch.ts, not alphabetical
   const steps: Record<LaunchStep, StepRow> = {
-    auth: makeStepRow(renderer, root, "auth", "Auth"),
-    classpath: makeStepRow(renderer, root, "classpath", "Classpath"),
     config: makeStepRow(renderer, root, "config", "Config"),
     java: makeStepRow(renderer, root, "java", "Java"),
+    auth: makeStepRow(renderer, root, "auth", "Auth"),
+    classpath: makeStepRow(renderer, root, "classpath", "Classpath"),
     launch: makeStepRow(renderer, root, "launch", "Launch"),
   };
 

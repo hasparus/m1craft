@@ -179,7 +179,7 @@ describe("authenticate", () => {
       ),
     );
 
-    expect(authenticate(noopCallbacks)).rejects.toThrow("Xbox Live auth failed");
+    await expect(authenticate(noopCallbacks)).rejects.toThrow("Xbox Live auth failed");
   });
 
   test("throws on Minecraft login failure", async () => {
@@ -191,6 +191,6 @@ describe("authenticate", () => {
       ),
     );
 
-    expect(authenticate(noopCallbacks)).rejects.toThrow("Minecraft login failed");
+    await expect(authenticate(noopCallbacks)).rejects.toThrow("Minecraft login failed");
   });
 });

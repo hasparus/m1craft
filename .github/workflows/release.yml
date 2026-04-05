@@ -17,8 +17,8 @@ jobs:
 
       - run: bun install
 
-      - run: bun run build
+      - run: bun run package
 
       - uses: softprops/action-gh-release@v2
         with:
-          files: mc-arm64
+          files: m1craft-macos-arm64.zip
