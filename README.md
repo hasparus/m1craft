@@ -1,8 +1,8 @@
 # m1craft
 
-Run Minecraft Forge 1.18.2 natively on Apple Silicon -- no Rosetta.
+Run Minecraft Forge natively on Apple Silicon -- no Rosetta.
 
-Forge 1.18.2 ships LWJGL 3.2.1, which lacks arm64 macOS natives. CurseForge and the vanilla launcher both redownload x86_64 libraries, forcing Rosetta emulation. m1craft swaps in LWJGL 3.3.3 arm64 natives and launches Forge directly, bypassing both launchers.
+Forge ships LWJGL builds that lack arm64 macOS natives. CurseForge and the vanilla launcher both redownload x86_64 libraries, forcing Rosetta emulation. m1craft swaps in LWJGL 3.3.3 arm64 natives and launches Forge directly, bypassing both launchers.
 
 ## Quick start
 
@@ -82,7 +82,7 @@ All fields are optional. CLI flags override config values.
 
 ## How it works
 
-**`m1craft setup`** downloads Zulu JDK 17 ARM64, LWJGL 3.3.3 JARs, and arm64 `.dylib` natives into a directory CurseForge never touches.
+**`m1craft setup`** downloads Zulu JDK ARM64 (configurable version), LWJGL 3.3.3 JARs, and arm64 `.dylib` natives into a directory CurseForge never touches.
 
 **Classpath resolver** reads the Forge and Minecraft version JSONs, swaps LWJGL versions, filters libraries by OS/arch rules, and resolves JVM argument placeholders.
 
