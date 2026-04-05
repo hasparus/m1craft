@@ -1,4 +1,4 @@
-import type { MojangLibraryRule } from "./types.js";
+import type { MojangLibraryRule } from "./resolve.js";
 
 /**
  * Evaluate Mojang-style OS rules for macOS ARM64.

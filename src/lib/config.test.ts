@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, test } from "bun:test";
 
-import type { UserConfig } from "./types.js";
+import type { UserConfig } from "./config.js";
 
 import { loadConfig, loadJavaVersion, saveConfig } from "./config.js";
 

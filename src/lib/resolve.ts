@@ -1,16 +1,72 @@
 import { type } from "arktype";
 import { join } from "node:path";
 
-import type {
-  LaunchConfig,
-  MojangLibrary,
-  VersionArgument,
-} from "./types.js";
-
 import { ResolveError } from "./errors.js";
 import { parseMaven } from "./maven.js";
 import { INSTALL, LWJGL_VERSION } from "./paths.js";
 import { osMatches } from "./rules.js";
+
+export interface MojangLibraryRule {
+  action: "allow" | "disallow";
+  os?: { arch?: string; name?: string; version?: string; };
+}
+
+export interface MojangLibraryDownload {
+  path: string;
+  sha1: string;
+  size: number;
+  url: string;
+}
+
+export interface MojangLibrary {
+  downloads?: {
+    artifact?: MojangLibraryDownload;
+    classifiers?: Record<string, MojangLibraryDownload>;
+  };
+  name: string;
+  natives?: Record<string, string>;
+  rules?: MojangLibraryRule[];
+}
+
+export interface ConditionalArgument {
+  rules: MojangLibraryRule[];
+  value: string[] | string;
+}
+
+export type VersionArgument = ConditionalArgument | string;
+
+export interface VersionJson {
+  arguments?: {
+    game?: VersionArgument[];
+    jvm?: VersionArgument[];
+  };
+  assetIndex?: { id: string };
+  assets?: string;
+  id: string;
+  inheritsFrom?: string;
+  libraries: MojangLibrary[];
+  mainClass: string;
+}
+
+export interface CurseForgeInstance {
+  baseModLoader: {
+    forgeVersion: string;
+    name: string;
+    type: number;
+  };
+  gameVersion: string;
+}
+
+export interface LaunchConfig {
+  assetIndex: string;
+  classpath: string[];
+  forgeName: string;
+  gameArgs: string[];
+  jvmArgs: string[];
+  mainClass: string;
+  mcVersion: string;
+  modulePath: string[];
+}
 
 const CurseForgeInstanceSchema = type({
   baseModLoader: { "forgeVersion?": "string", name: "string", "type?": "number" },

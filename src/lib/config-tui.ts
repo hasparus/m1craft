@@ -9,7 +9,7 @@ import {
 } from "@opentui/core";
 import { join } from "node:path";
 
-import type { UserConfig } from "./types.js";
+import type { UserConfig } from "./config.js";
 
 import { discoverInstances, loadConfig, saveConfig } from "./config.js";
 import { CF_BASE, getConfigPath } from "./paths.js";

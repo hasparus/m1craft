@@ -2,8 +2,6 @@ import { type } from "arktype";
 import { isError } from "errore";
 import { chmod } from "node:fs/promises";
 
-import type { AuthCache, AuthResult } from "./types.js";
-
 import { AuthError, HttpError, ValidationError, XboxError } from "./errors.js";
 import {
   AUTH_CACHE_PATH,
@@ -11,6 +9,20 @@ import {
   hasAuthCachePathOverride,
   LEGACY_AUTH_CACHE_PATH,
 } from "./paths.js";
+
+export interface AuthCache {
+  access_token: string;
+  expires_at: number;
+  refresh_token: string;
+  username: string;
+  uuid: string;
+}
+
+export interface AuthResult {
+  accessToken: string;
+  username: string;
+  uuid: string;
+}
 
 const CLIENT_ID = "00000000402b5328";
 const TIMEOUT = 15_000;
@@ -408,7 +420,7 @@ export async function authenticate(callbacks?: AuthCallbacks): Promise<AuthResul
 }
 
 export type AuthStatus =
-  | { status: "valid"; expires: string; username: string; uuid: string }
+  | { expires: string; status: "valid"; username: string; uuid: string }
   | { status: "expired" }
   | { status: "none" };
 

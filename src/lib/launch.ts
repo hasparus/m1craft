@@ -1,7 +1,6 @@
 import { join } from "node:path";
 
-import type { AuthCallbacks } from "./auth.js";
-import type { AuthResult } from "./types.js";
+import type { AuthCallbacks, AuthResult } from "./auth.js";
 
 import { authenticate } from "./auth.js";
 import { loadConfig } from "./config.js";

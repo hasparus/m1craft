@@ -1,8 +1,6 @@
 import { type } from "arktype";
 import { join } from "node:path";
 
-import type { UserConfig } from "./types.js";
-
 import {
   CF_BASE,
   CONFIG_PATH,
@@ -10,6 +8,16 @@ import {
   hasConfigPathOverride,
   LEGACY_CONFIG_PATH,
 } from "./paths.js";
+
+export interface UserConfig {
+  defaultInstance?: string;
+  height?: number;
+  javaVersion?: string;
+  lwjglVersion?: string;
+  width?: number;
+  xms?: string;
+  xmx?: string;
+}
 
 const UserConfigSchema = type({
   "defaultInstance?": "string",
