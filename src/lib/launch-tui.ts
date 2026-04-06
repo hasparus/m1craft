@@ -23,7 +23,6 @@ export interface StepRow {
 
 export function makeStepRow(
   renderer: RenderContext,
-  root: BoxRenderable,
   id: string,
   label: string,
 ): StepRow {
@@ -34,7 +33,6 @@ export function makeStepRow(
   const text = new TextRenderable(renderer, { content: label, height: 1, id: `${id}-text` });
   row.add(icon);
   row.add(text);
-  root.add(row);
   return { icon, row, spinner: null, text };
 }
 
@@ -158,14 +156,18 @@ export async function launchWithTui(opts: { dryRun?: boolean; instance?: string;
   });
   root.add(new TextRenderable(renderer, { content: "m1craft", height: 2, id: "title" }));
 
-  // Order matches execution sequence in launch.ts, not alphabetical
-  const steps: Record<LaunchStep, StepRow> = {
-    config: makeStepRow(renderer, root, "config", "Config"),
-    java: makeStepRow(renderer, root, "java", "Java"),
-    auth: makeStepRow(renderer, root, "auth", "Auth"),
-    classpath: makeStepRow(renderer, root, "classpath", "Classpath"),
-    launch: makeStepRow(renderer, root, "launch", "Launch"),
+  const steps = {
+    auth: makeStepRow(renderer, "auth", "Auth"),
+    classpath: makeStepRow(renderer, "classpath", "Classpath"),
+    config: makeStepRow(renderer, "config", "Config"),
+    java: makeStepRow(renderer, "java", "Java"),
+    launch: makeStepRow(renderer, "launch", "Launch"),
   };
+  root.add(steps.config.row);
+  root.add(steps.java.row);
+  root.add(steps.auth.row);
+  root.add(steps.classpath.row);
+  root.add(steps.launch.row);
 
   const statusLine = new TextRenderable(renderer, { content: "", height: 1, id: "status" });
   root.add(statusLine);

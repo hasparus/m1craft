@@ -17,7 +17,8 @@ describe("launch TUI", () => {
 
     const stepNames: LaunchStep[] = ["config", "java", "auth", "classpath", "launch"];
     for (const name of stepNames) {
-      makeStepRow(renderer, root, name, name.charAt(0).toUpperCase() + name.slice(1));
+      const step = makeStepRow(renderer, name, name.charAt(0).toUpperCase() + name.slice(1));
+      root.add(step.row);
     }
 
     renderer.root.add(root);
@@ -41,7 +42,8 @@ describe("launch TUI", () => {
     const root = new BoxRenderable(renderer, {
       flexDirection: "column", height: "100%", id: "root", width: "100%",
     });
-    const step = makeStepRow(renderer, root, "test", "Test Step");
+    const step = makeStepRow(renderer, "test", "Test Step");
+    root.add(step.row);
     renderer.root.add(root);
 
     setStepStatus(renderer, step, "✓", "Test Step — done");
@@ -87,13 +89,18 @@ describe("launch TUI", () => {
       flexDirection: "column", gap: 0, height: "100%", id: "root", width: "100%",
     });
 
-    const steps: Record<LaunchStep, ReturnType<typeof makeStepRow>> = {
-      auth: makeStepRow(renderer, root, "auth", "Auth"),
-      classpath: makeStepRow(renderer, root, "classpath", "Classpath"),
-      config: makeStepRow(renderer, root, "config", "Config"),
-      java: makeStepRow(renderer, root, "java", "Java"),
-      launch: makeStepRow(renderer, root, "launch", "Launch"),
+    const steps = {
+      auth: makeStepRow(renderer, "auth", "Auth"),
+      classpath: makeStepRow(renderer, "classpath", "Classpath"),
+      config: makeStepRow(renderer, "config", "Config"),
+      java: makeStepRow(renderer, "java", "Java"),
+      launch: makeStepRow(renderer, "launch", "Launch"),
     };
+    root.add(steps.config.row);
+    root.add(steps.java.row);
+    root.add(steps.auth.row);
+    root.add(steps.classpath.row);
+    root.add(steps.launch.row);
     renderer.root.add(root);
 
     setStepStatus(renderer, steps.config, "✓", "Config");

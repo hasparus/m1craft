@@ -276,9 +276,12 @@ async function createSetupTUI(javaVersion: string): Promise<{ steps: [StepRow, S
   });
   root.add(new TextRenderable(renderer, { content: "m1craft setup", height: 2, id: "title" }));
 
-  const step1 = makeStepRow(renderer, root, "step1", `Zulu JDK ${javaVersion} ARM64`);
-  const step2 = makeStepRow(renderer, root, "step2", "LWJGL 3.3.3 JARs");
-  const step3 = makeStepRow(renderer, root, "step3", "ARM64 native libraries");
+  const step1 = makeStepRow(renderer, "step1", `Zulu JDK ${javaVersion} ARM64`);
+  root.add(step1.row);
+  const step2 = makeStepRow(renderer, "step2", "LWJGL 3.3.3 JARs");
+  root.add(step2.row);
+  const step3 = makeStepRow(renderer, "step3", "ARM64 native libraries");
+  root.add(step3.row);
 
   root.add(new TextRenderable(renderer, { content: "", height: 1, id: "spacer" }));
 
