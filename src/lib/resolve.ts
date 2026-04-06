@@ -6,56 +6,28 @@ import { parseMaven } from "./maven.js";
 import { INSTALL, LWJGL_VERSION } from "./paths.js";
 import { osMatches } from "./rules.js";
 
-export interface MojangLibraryRule {
-  action: "allow" | "disallow";
-  os?: { arch?: string; name?: string; version?: string; };
-}
+const OsRuleSchema = type({ action: "'allow' | 'disallow'", "os?": { "arch?": "string", "name?": "string", "version?": "string" } });
+export type MojangLibraryRule = typeof OsRuleSchema.infer;
 
-export interface MojangLibraryDownload {
-  path: string;
-  sha1: string;
-  size: number;
-  url: string;
-}
+const VersionArgumentSchema = type("string").or({ rules: OsRuleSchema.array(), value: type("string").or("string[]") });
 
-export interface MojangLibrary {
-  downloads?: {
-    artifact?: MojangLibraryDownload;
-    classifiers?: Record<string, MojangLibraryDownload>;
-  };
-  name: string;
-  natives?: Record<string, string>;
-  rules?: MojangLibraryRule[];
-}
+const VersionJsonSchema = type({
+  "arguments?": { "game?": VersionArgumentSchema.array(), "jvm?": VersionArgumentSchema.array() },
+  "assetIndex?": { id: "string" },
+  "assets?": "string",
+  "id?": "string",
+  "inheritsFrom?": "string",
+  libraries: type({
+    "downloads?": { "artifact?": { "path?": "string" } },
+    name: "string",
+    "natives?": { "osx?": "string" },
+    "rules?": OsRuleSchema.array(),
+  }).array(),
+  mainClass: "string",
+});
 
-export interface ConditionalArgument {
-  rules: MojangLibraryRule[];
-  value: string[] | string;
-}
-
-export type VersionArgument = ConditionalArgument | string;
-
-export interface VersionJson {
-  arguments?: {
-    game?: VersionArgument[];
-    jvm?: VersionArgument[];
-  };
-  assetIndex?: { id: string };
-  assets?: string;
-  id: string;
-  inheritsFrom?: string;
-  libraries: MojangLibrary[];
-  mainClass: string;
-}
-
-export interface CurseForgeInstance {
-  baseModLoader: {
-    forgeVersion: string;
-    name: string;
-    type: number;
-  };
-  gameVersion: string;
-}
+type VersionLibrary = typeof VersionJsonSchema.infer.libraries[number];
+type VersionArgument = typeof VersionArgumentSchema.infer;
 
 export interface LaunchConfig {
   assetIndex: string;
@@ -73,21 +45,6 @@ const CurseForgeInstanceSchema = type({
   gameVersion: "string",
 });
 
-const VersionJsonSchema = type({
-  "arguments?": { "game?": "unknown[]", "jvm?": "unknown[]" },
-  "assetIndex?": { id: "string" },
-  "assets?": "string",
-  "id?": "string",
-  "inheritsFrom?": "string",
-  libraries: type({
-    "downloads?": "unknown",
-    name: "string",
-    "natives?": "unknown",
-    "rules?": "unknown[]",
-  }).array(),
-  mainClass: "string",
-});
-
 async function loadCurseForgeInstance(path: string) {
   const raw = await Bun.file(path).json();
   const result = CurseForgeInstanceSchema(raw);
@@ -99,9 +56,7 @@ async function loadVersionJson(path: string) {
   const raw = await Bun.file(path).json();
   const result = VersionJsonSchema(raw);
   if (result instanceof type.errors) throw new ResolveError({ message: `Invalid version JSON at ${path}: ${result.summary}` });
-  // arktype validated top-level shape; inner arrays typed as unknown to avoid
-  // duplicating Mojang's deeply nested types. Cast safe post-validation.
-  return result as unknown as { arguments?: { game?: VersionArgument[]; jvm?: VersionArgument[]; }; assetIndex?: { id: string }; assets?: string; libraries: MojangLibrary[]; mainClass: string; };
+  return result;
 }
 
 /** Flatten VersionArgument[] into string[], evaluating conditional entries via osMatches. */
@@ -145,7 +100,7 @@ export async function resolveClasspath(
       .map((lib) => { const c = parseMaven(lib.name); return `${c.group}:${c.artifact}`; })
   );
 
-  function addLib(lib: MojangLibrary, isForge: boolean) {
+  function addLib(lib: VersionLibrary, isForge: boolean) {
     if (!osMatches(lib.rules)) return;
     if (lib.natives?.osx) return;
 
