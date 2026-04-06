@@ -3,7 +3,6 @@ import { join } from "node:path";
 
 import {
   CF_BASE,
-  CONFIG_PATH,
   getConfigPath,
   hasConfigPathOverride,
   LEGACY_CONFIG_PATH,
@@ -38,7 +37,7 @@ export async function loadConfig(path = getConfigPath()): Promise<UserConfig> {
   try {
     return parseConfig(await Bun.file(path).json());
   } catch {
-    if (path === CONFIG_PATH && !hasConfigPathOverride()) {
+    if (!hasConfigPathOverride()) {
       try {
         return parseConfig(await Bun.file(LEGACY_CONFIG_PATH).json());
       } catch { /* fall through */ }

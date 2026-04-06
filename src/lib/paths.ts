@@ -14,8 +14,6 @@ export const DEFAULT_INSTANCE = join(
   "Instances/Isle of Berk (Claws of Berk)"
 );
 export const NATIVES_DIR = join(INSTALL, "natives/arm64");
-export const AUTH_CACHE_PATH = DEFAULT_AUTH_CACHE_PATH;
-export const CONFIG_PATH = DEFAULT_CONFIG_PATH;
 export const LEGACY_AUTH_CACHE_PATH = join(home, ".mc-auth-cache.json");
 export const LEGACY_CONFIG_PATH = join(home, ".mc-arm64.json");
 export const LWJGL_VERSION = "3.3.3";

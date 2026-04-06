@@ -3,9 +3,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 import {
-  AUTH_CACHE_PATH,
   CF_BASE,
-  CONFIG_PATH,
   getAuthCachePath,
   getConfigPath,
   INSTALL,
@@ -32,8 +30,10 @@ describe("paths", () => {
     expect(NATIVES_DIR).toBe(join(INSTALL, "natives/arm64"));
   });
 
-  test("AUTH_CACHE_PATH uses the m1craft name", () => {
-    expect(AUTH_CACHE_PATH).toBe(join(home, ".m1craft-auth.json"));
+  test("getAuthCachePath defaults to ~/.m1craft-auth.json", () => {
+    delete process.env["M1CRAFT_AUTH_CACHE_PATH"];
+    delete process.env["MC_ARM64_AUTH_CACHE_PATH"];
+    expect(getAuthCachePath()).toBe(join(home, ".m1craft-auth.json"));
   });
 
   test("getAuthCachePath respects env override", () => {
@@ -46,8 +46,10 @@ describe("paths", () => {
     expect(LEGACY_AUTH_CACHE_PATH).toBe(join(home, ".mc-auth-cache.json"));
   });
 
-  test("CONFIG_PATH uses the m1craft name", () => {
-    expect(CONFIG_PATH).toBe(join(home, ".m1craft.json"));
+  test("getConfigPath defaults to ~/.m1craft.json", () => {
+    delete process.env["M1CRAFT_CONFIG_PATH"];
+    delete process.env["MC_ARM64_CONFIG_PATH"];
+    expect(getConfigPath()).toBe(join(home, ".m1craft.json"));
   });
 
   test("getConfigPath respects env override", () => {

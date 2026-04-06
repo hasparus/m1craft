@@ -4,7 +4,6 @@ import { chmod } from "node:fs/promises";
 
 import { AuthError, HttpError, ValidationError, XboxError } from "./errors.js";
 import {
-  AUTH_CACHE_PATH,
   getAuthCachePath,
   hasAuthCachePathOverride,
   LEGACY_AUTH_CACHE_PATH,
@@ -354,7 +353,7 @@ async function loadCache(): Promise<Partial<AuthCache>> {
   try {
     return parseCache(await Bun.file(cachePath).json());
   } catch {
-    if (cachePath === AUTH_CACHE_PATH && !hasAuthCachePathOverride()) {
+    if (!hasAuthCachePathOverride()) {
       try {
         return parseCache(await Bun.file(LEGACY_AUTH_CACHE_PATH).json());
       } catch { /* fall through */ }
