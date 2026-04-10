@@ -47,15 +47,35 @@ const CurseForgeInstanceSchema = type({
   gameVersion: "string",
 });
 
+/**
+ * Recursively strip null values from nested objects/arrays so that arktype's
+ * "field?" optional fields accept them. CurseForge-shipped Forge/Fabric
+ * version JSONs serialize absent optional fields as `"field": null` rather
+ * than omitting them; the schema treats missing and null as the same thing.
+ */
+function stripNulls(value: unknown): unknown {
+  if (value === null) return undefined;
+  if (Array.isArray(value)) return value.map(stripNulls);
+  if (typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      const stripped = stripNulls(v);
+      if (stripped !== undefined) out[k] = stripped;
+    }
+    return out;
+  }
+  return value;
+}
+
 async function loadCurseForgeInstance(path: string) {
-  const raw = await Bun.file(path).json();
+  const raw = stripNulls(await Bun.file(path).json());
   const result = CurseForgeInstanceSchema(raw);
   if (result instanceof type.errors) throw new ResolveError({ message: `Invalid CurseForge instance at ${path}: ${result.summary}` });
   return result;
 }
 
 async function loadVersionJson(path: string) {
-  const raw = await Bun.file(path).json();
+  const raw = stripNulls(await Bun.file(path).json());
   const result = VersionJsonSchema(raw);
   if (result instanceof type.errors) throw new ResolveError({ message: `Invalid version JSON at ${path}: ${result.summary}` });
   return result;
