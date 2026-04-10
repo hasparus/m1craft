@@ -1,0 +1,92 @@
+import { describe, expect, test } from "bun:test";
+
+import { osMatches } from "./rules.js";
+
+describe("osMatches", () => {
+  test("no rules → include", () => {
+    expect(osMatches()).toBe(true);
+    expect(osMatches([])).toBe(true); // empty rules = no rules = include everywhere
+  });
+
+  test("unconditional allow", () => {
+    expect(osMatches([{ action: "allow" }])).toBe(true);
+  });
+
+  test("unconditional disallow", () => {
+    expect(osMatches([{ action: "disallow" }])).toBe(false);
+  });
+
+  test("allow on osx only", () => {
+    expect(osMatches([{ action: "allow", os: { name: "osx" } }])).toBe(true);
+  });
+
+  test("allow on linux only → excluded on macOS", () => {
+    expect(osMatches([{ action: "allow", os: { name: "linux" } }])).toBe(false);
+  });
+
+  test("allow on windows only → excluded on macOS", () => {
+    expect(osMatches([{ action: "allow", os: { name: "windows" } }])).toBe(false);
+  });
+
+  test("allow everywhere, disallow on linux → included on macOS", () => {
+    expect(
+      osMatches([
+        { action: "allow" },
+        { action: "disallow", os: { name: "linux" } },
+      ]),
+    ).toBe(true);
+  });
+
+  test("allow everywhere, disallow on osx → excluded on macOS", () => {
+    expect(
+      osMatches([
+        { action: "allow" },
+        { action: "disallow", os: { name: "osx" } },
+      ]),
+    ).toBe(false);
+  });
+
+  // Arch-specific rules
+  test("allow on osx x86_64 only → excluded on arm64", () => {
+    expect(
+      osMatches([{ action: "allow", os: { arch: "x86_64", name: "osx" } }]),
+    ).toBe(false);
+  });
+
+  test("allow on osx arm64 → included", () => {
+    expect(
+      osMatches([{ action: "allow", os: { arch: "arm64", name: "osx" } }]),
+    ).toBe(true);
+  });
+
+  test("allow on osx aarch64 → included (alias)", () => {
+    expect(
+      osMatches([{ action: "allow", os: { arch: "aarch64", name: "osx" } }]),
+    ).toBe(true);
+  });
+
+  test("disallow x86 on osx, allow everything else", () => {
+    expect(
+      osMatches([
+        { action: "allow" },
+        { action: "disallow", os: { arch: "x86", name: "osx" } },
+      ]),
+    ).toBe(true); // x86 rule doesn't match arm64, so allow stands
+  });
+
+  test("last matching rule wins", () => {
+    expect(
+      osMatches([
+        { action: "disallow", os: { name: "osx" } },
+        { action: "allow", os: { name: "osx" } },
+      ]),
+    ).toBe(true);
+
+    expect(
+      osMatches([
+        { action: "allow", os: { name: "osx" } },
+        { action: "disallow", os: { name: "osx" } },
+      ]),
+    ).toBe(false);
+  });
+});

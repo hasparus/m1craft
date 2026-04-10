@@ -1,26 +1,36 @@
 import { createTaggedError } from "errore";
 
 export class HttpError extends createTaggedError({
-  name: "HttpError",
   message: "$method $url returned $status",
+  name: "HttpError",
 }) {}
 
 export class ValidationError extends createTaggedError({
-  name: "ValidationError",
   message: "Invalid $source response: $summary",
+  name: "ValidationError",
 }) {}
 
 export class AuthError extends createTaggedError({
-  name: "AuthError",
   message: "$message",
+  name: "AuthError",
 }) {}
 
 export class XboxError extends createTaggedError({
-  name: "XboxError",
   message: "Xbox auth failed: $reason",
+  name: "XboxError",
 }) {}
 
 export class LaunchError extends createTaggedError({
-  name: "LaunchError",
   message: "$message",
+  name: "LaunchError",
+}) {}
+
+export class SetupError extends createTaggedError({
+  message: "$message",
+  name: "SetupError",
+}) {}
+
+export class ResolveError extends createTaggedError({
+  message: "$message",
+  name: "ResolveError",
 }) {}

@@ -1,4 +1,9 @@
-import type { MavenCoordinate } from "./types.js";
+export interface MavenCoordinate {
+  artifact: string;
+  classifier?: string;
+  group: string;
+  version: string;
+}
 
 export function parseMaven(coord: string): MavenCoordinate {
   const parts = coord.split(":");
@@ -6,9 +11,9 @@ export function parseMaven(coord: string): MavenCoordinate {
     throw new Error(`Invalid Maven coordinate (expected group:artifact:version): "${coord}"`);
   }
   return {
-    group: parts[0]!,
     artifact: parts[1]!,
-    version: parts[2]!,
     classifier: parts[3],
+    group: parts[0]!,
+    version: parts[2]!,
   };
 }

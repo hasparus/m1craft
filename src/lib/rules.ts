@@ -1,4 +1,4 @@
-import type { MojangLibraryRule } from "./types.js";
+import type { MojangLibraryRule } from "./resolve.js";
 
 /**
  * Evaluate Mojang-style OS rules for macOS ARM64.
@@ -12,7 +12,7 @@ import type { MojangLibraryRule } from "./types.js";
  * - Arch "aarch64" matches ARM64 (this is what we're running on)
  */
 export function osMatches(rules?: MojangLibraryRule[]): boolean {
-  if (!rules) return true;
+  if (!rules || rules.length === 0) return true;
 
   let result = false;
   for (const rule of rules) {
@@ -32,7 +32,7 @@ export function osMatches(rules?: MojangLibraryRule[]): boolean {
     // used in vanilla but could appear in modded JSONs.
     // On ARM64 macOS, process.arch is "arm64".
     if (rule.os.arch) {
-      const arch = rule.os.arch;
+      const {arch} = rule.os;
       // We're ARM64 — skip rules that only apply to x86/x86_64
       if (arch === "x86" || arch === "x86_64") continue;
       // Only match if the rule explicitly targets arm64/aarch64

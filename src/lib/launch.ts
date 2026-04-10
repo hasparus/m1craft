@@ -1,58 +1,54 @@
-import { homedir } from "node:os";
 import { join } from "node:path";
-import { readdir } from "node:fs/promises";
-import { authenticate } from "./auth.js";
-import { resolveClasspath } from "./resolve.js";
-import { loadConfig } from "./config.js";
-import { CF_BASE, INSTALL, NATIVES_DIR, DEFAULT_INSTANCE, LWJGL_VERSION } from "./paths.js";
-import { LaunchError } from "./errors.js";
 
-async function findJava(javaVersion = "17"): Promise<string> {
-  const javaDir = join(homedir(), "Library/Java");
-  let entries: string[];
-  try {
-    const all = await readdir(javaDir);
-    entries = all.filter((e) => e.startsWith(`zulu${javaVersion}`) && e.includes("macosx_aarch64")).sort();
-  } catch {
-    throw new LaunchError({ message: "~/Library/Java not found. Run 'mc-arm64 setup' first." });
-  }
-  const match = entries.at(-1);
-  if (!match) throw new LaunchError({ message: `Zulu ${javaVersion} ARM not found. Run 'mc-arm64 setup' first.` });
-  return join(javaDir, match, "bin/java");
+import type { AuthCallbacks, AuthResult } from "./auth.js";
+
+import { authenticate } from "./auth.js";
+import { loadConfig } from "./config.js";
+import { LaunchError } from "./errors.js";
+import { findZuluJavaBin } from "./java.js";
+import { CF_BASE, DEFAULT_INSTANCE, INSTALL, LWJGL_VERSION, NATIVES_DIR } from "./paths.js";
+import { resolveClasspath } from "./resolve.js";
+
+export type LaunchStep = "auth" | "classpath" | "config" | "java" | "launch";
+
+export interface LaunchCallbacks {
+  auth?: AuthCallbacks;
+  onStep?: (step: LaunchStep, detail?: string) => void;
 }
 
-export async function launch(opts: { instance?: string; dryRun?: boolean }) {
-  let config = await loadConfig();
+export interface LaunchResult {
+  auth: AuthResult;
+  cmd: string[];
+  forgeName: string;
+  instanceDir: string;
+}
 
-  // First-launch wizard: if no config and no --instance flag, run config TUI
-  if (!opts.instance && !config.defaultInstance) {
-    const { discoverInstances } = await import("./config.js");
-    const instances = await discoverInstances();
-    if (instances.length > 0) {
-      console.error("");
-      console.error("  Welcome to mc-arm64! Let's pick your modpack first.");
-      console.error("");
-      const { configTui } = await import("./config-tui.js");
-      await configTui();
-      // Reload config after TUI saves
-      config = await loadConfig();
-    }
-  }
+/** Resolve everything needed to launch Minecraft. Does not spawn or print. */
+export async function prepareLaunch(
+  opts: { installDir?: string; instance?: string; },
+  callbacks?: LaunchCallbacks,
+): Promise<LaunchResult> {
+  callbacks?.onStep?.("config");
+  const config = await loadConfig();
 
+  const installDir = opts.installDir ?? INSTALL;
   const instanceDir = opts.instance
     ?? (config.defaultInstance
       ? join(CF_BASE, "Instances", config.defaultInstance)
       : DEFAULT_INSTANCE);
+
+  callbacks?.onStep?.("java");
   const javaVersion = config.javaVersion ?? "17";
-  const java = await findJava(javaVersion);
-  const auth = await authenticate();
+  const java = await findZuluJavaBin(javaVersion);
+  if (!java) throw new LaunchError({ message: `Zulu ${javaVersion} ARM not found. Run 'm1craft setup' first.` });
 
-  console.error(`Auth: ${auth.username} (${auth.uuid.slice(0, 8)}...)`);
+  callbacks?.onStep?.("auth");
+  const auth = await authenticate(callbacks?.auth);
 
+  callbacks?.onStep?.("classpath");
   const lwjglVersion = config.lwjglVersion ?? LWJGL_VERSION;
-  const resolved = await resolveClasspath(instanceDir, INSTALL, lwjglVersion);
-
-  console.error(`Launching ${resolved.forgeName}...`);
+  const resolved = await resolveClasspath(instanceDir, installDir, lwjglVersion);
+  callbacks?.onStep?.("launch", resolved.forgeName);
 
   const xmx = config.xmx ?? "8192m";
   const xms = config.xms ?? "256m";
@@ -65,7 +61,7 @@ export async function launch(opts: { instance?: string; dryRun?: boolean }) {
     `-Dorg.lwjgl.librarypath=${NATIVES_DIR}`,
     `-Djava.library.path=${NATIVES_DIR}`,
     "-Dfml.earlyprogresswindow=false",
-    "-Dminecraft.launcher.brand=mc-arm64",
+    "-Dminecraft.launcher.brand=m1craft",
     ...resolved.jvmArgs,
     "-cp", resolved.classpath.join(":"),
     ...(resolved.modulePath.length > 0
@@ -84,7 +80,7 @@ export async function launch(opts: { instance?: string; dryRun?: boolean }) {
     "--username", auth.username,
     "--version", resolved.forgeName,
     "--gameDir", instanceDir,
-    "--assetsDir", join(INSTALL, "assets"),
+    "--assetsDir", join(installDir, "assets"),
     "--assetIndex", resolved.assetIndex,
     "--uuid", auth.uuid,
     "--accessToken", auth.accessToken,
@@ -94,17 +90,12 @@ export async function launch(opts: { instance?: string; dryRun?: boolean }) {
     ...resolved.gameArgs,
   ];
 
-  if (opts.dryRun) {
-    const redacted = cmd.map((arg, i) =>
-      cmd[i - 1] === "--accessToken" ? "<REDACTED>" : arg
-    );
-    console.log(redacted.join(" \\\n  "));
-    return;
-  }
+  return { auth, cmd, forgeName: resolved.forgeName, instanceDir };
+}
 
-  const proc = Bun.spawn(cmd, {
-    cwd: instanceDir,
-    stdio: ["inherit", "inherit", "inherit"],
-  });
-  process.exit(await proc.exited);
+/** Redact the access token from a command array for display. */
+export function redactCmd(cmd: string[]): string[] {
+  return cmd.map((arg, i) =>
+    cmd[i - 1] === "--accessToken" ? "<REDACTED>" : arg
+  );
 }

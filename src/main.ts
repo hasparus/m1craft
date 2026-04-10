@@ -1,12 +1,14 @@
-import { parseArgs } from "node:util";
 import { isTaggedError } from "errore";
+import { parseArgs } from "node:util";
+
+
 
 const { positionals, values } = parseArgs({
   allowPositionals: true,
   options: {
-    help: { type: "boolean", short: "h" },
-    "dry-run": { type: "boolean" },
     check: { type: "boolean" },
+    "dry-run": { type: "boolean" },
+    help: { short: "h", type: "boolean" },
     instance: { type: "string" },
   },
 });
@@ -14,7 +16,7 @@ const { positionals, values } = parseArgs({
 const command = positionals[0];
 
 function printHelp() {
-  console.log(`mc-arm64 — Minecraft Forge on Apple Silicon
+  console.log(`m1craft — Minecraft Forge on Apple Silicon
 
 Commands:
   launch    Launch Minecraft (default if no command given)
@@ -30,14 +32,13 @@ Options:
   -h, --help          Show this help`);
 }
 
-function formatError(err: unknown): string {
-  if (isTaggedError(err)) {
-    const lines = [err.message];
+function formatError(error: unknown): string {
+  if (isTaggedError(error)) {
+    const lines = [error.message];
 
-    // Walk the cause chain for context
-    let cause = err.cause;
+    let { cause } = error;
     while (cause instanceof Error) {
-      if (isTaggedError(cause) && cause.message !== err.message) {
+      if (isTaggedError(cause) && cause.message !== error.message) {
         lines.push(`  caused by: ${cause.message}`);
       }
       cause = cause.cause;
@@ -46,14 +47,13 @@ function formatError(err: unknown): string {
     return lines.join("\n");
   }
 
-  if (err instanceof Error) return err.message;
-  return String(err);
+  if (error instanceof Error) return error.message;
+  return String(error);
 }
 
 async function ensureSetup() {
-  const { loadConfig } = await import("./lib/config.js");
-  const config = await loadConfig();
-  const javaVersion = config.javaVersion ?? "17";
+  const { loadJavaVersion } = await import("./lib/config.js");
+  const javaVersion = await loadJavaVersion();
 
   const { checkSetup, runSetup } = await import("./lib/setup.js");
   const status = await checkSetup(javaVersion);
@@ -61,34 +61,20 @@ async function ensureSetup() {
   await runSetup(javaVersion);
 }
 
-async function main() {
-  // Auto-setup on commands that need it (not help, setup itself, or --help)
-  if (command !== "help" && command !== "setup" && !values.help) {
-    await ensureSetup();
-  }
-
+try {
   switch (command) {
-    case "help":
-      printHelp();
-      break;
-    case "launch":
-    case undefined: {
-      if (values.help) { printHelp(); break; }
-      const { launch } = await import("./lib/launch.js");
-      await launch({
-        instance: values.instance,
-        dryRun: values["dry-run"],
-      });
-      break;
-    }
     case "auth": {
-      const { authCommand } = await import("./lib/auth.js");
-      await authCommand({ check: values.check });
-      break;
-    }
-    case "resolve": {
-      const { resolveCommand } = await import("./lib/resolve.js");
-      await resolveCommand({ instance: values.instance });
+      if (values.check) {
+        const { checkAuthStatus } = await import("./lib/auth.js");
+        const status = await checkAuthStatus();
+        if (status.status === "valid") console.log(`Token valid. ${status.username} (${status.uuid.slice(0, 8)}...) expires ${status.expires}`);
+        else if (status.status === "expired") console.log("Token expired but refresh token available.");
+        else console.log("No cached auth. Run 'm1craft auth' to log in.");
+      } else {
+        const { authenticate } = await import("./lib/auth.js");
+        const result = await authenticate();
+        console.log(`Authenticated as ${result.username} (${result.uuid})`);
+      }
       break;
     }
     case "config": {
@@ -96,9 +82,52 @@ async function main() {
       await configTui();
       break;
     }
+    case "help":
+      printHelp();
+      break;
+    case "launch":
+    case undefined: {
+      if (values.help) { printHelp(); break; }
+      await ensureSetup();
+
+      if (!values.instance) {
+        const { loadConfig } = await import("./lib/config.js");
+        const config = await loadConfig();
+        if (!config.defaultInstance) {
+          const { discoverInstances } = await import("./lib/config.js");
+          const instances = await discoverInstances();
+          if (instances.length > 0) {
+            console.error("");
+            console.error("  Welcome to m1craft! Let's pick your modpack first.");
+            console.error("");
+            const { configTui } = await import("./lib/config-tui.js");
+            await configTui();
+          }
+        }
+      }
+
+      if (values["dry-run"]) {
+        const { prepareLaunch, redactCmd } = await import("./lib/launch.js");
+        const result = await prepareLaunch({ instance: values.instance });
+        console.log(redactCmd(result.cmd).join(" \\\n  "));
+      } else {
+        const { launchWithTui } = await import("./lib/launch-tui.js");
+        await launchWithTui({ instance: values.instance });
+      }
+      break;
+    }
+    case "resolve": {
+      const { resolveClasspath } = await import("./lib/resolve.js");
+      const { DEFAULT_INSTANCE } = await import("./lib/paths.js");
+      const instanceDir = values.instance ?? DEFAULT_INSTANCE;
+      const config = await resolveClasspath(instanceDir);
+      console.log(JSON.stringify(config, null, 2));
+      break;
+    }
     case "setup": {
+      const { loadJavaVersion } = await import("./lib/config.js");
       const { runSetup } = await import("./lib/setup.js");
-      await runSetup();
+      await runSetup(await loadJavaVersion());
       break;
     }
     default:
@@ -106,9 +135,7 @@ async function main() {
       printHelp();
       process.exit(1);
   }
-}
-
-main().catch((err) => {
-  console.error(`\n  Error: ${formatError(err)}\n`);
+} catch (error) {
+  console.error(`\n  Error: ${formatError(error)}\n`);
   process.exit(1);
-});
+}
