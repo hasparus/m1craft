@@ -15,7 +15,7 @@ jobs:
 
       - run: bun install
 
-      - run: bun test ./**/*.unit.test.ts
+      - run: bun test unit.test
 
       - run: bun run lint
 
@@ -30,4 +30,4 @@ jobs:
 
       - run: bun install
 
-      - run: bun test ./**/*.integration.test.ts
+      - run: bun test integration.test
