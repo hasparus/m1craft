@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { ResolveError } from "./errors.js";
 import { parseMaven } from "./maven.js";
-import { INSTALL, LWJGL_VERSION } from "./paths.js";
+import { INSTALL, LWJGL_FALLBACK_VERSION } from "./paths.js";
 import { osMatches } from "./rules.js";
 
 const OsRuleSchema = type({ action: "'allow' | 'disallow'", "os?": { "arch?": "string", "name?": "string", "version?": "string" } });
@@ -26,6 +26,7 @@ const VersionJsonSchema = type({
   mainClass: "string",
 });
 
+type VersionJson = typeof VersionJsonSchema.infer;
 type VersionLibrary = typeof VersionJsonSchema.infer.libraries[number];
 type VersionArgument = typeof VersionArgumentSchema.infer;
 
@@ -35,6 +36,7 @@ export interface LaunchConfig {
   forgeName: string;
   gameArgs: string[];
   jvmArgs: string[];
+  lwjglVersion: string;
   mainClass: string;
   mcVersion: string;
   modulePath: string[];
@@ -59,6 +61,39 @@ async function loadVersionJson(path: string) {
   return result;
 }
 
+/** Numeric semver compare. Treats missing components as 0. */
+function compareSemver(a: string, b: string): number {
+  const pa = a.split(".").map((n) => Number(n) || 0);
+  const pb = b.split(".").map((n) => Number(n) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const da = pa[i] ?? 0;
+    const db = pb[i] ?? 0;
+    if (da !== db) return da - db;
+  }
+  return 0;
+}
+
+/**
+ * Pick the LWJGL version to substitute for org.lwjgl:* libraries.
+ *
+ * Strategy: take the highest org.lwjgl:lwjgl version found in the base MC
+ * version JSON. If that's < 3.3.0 (no ARM64 macOS natives, e.g. MC 1.18.2
+ * ships 3.2.2), upgrade to LWJGL_FALLBACK_VERSION. Otherwise use it as-is so
+ * that mods like Sodium — which strict-check the LWJGL minor version at
+ * runtime — see the version they were compiled against.
+ */
+function detectLwjglVersion(base: VersionJson): string {
+  let max = "";
+  for (const lib of base.libraries) {
+    const m = /^org\.lwjgl:lwjgl:([0-9.]+)$/.exec(lib.name);
+    if (!m) continue;
+    const v = m[1]!;
+    if (!max || compareSemver(v, max) > 0) max = v;
+  }
+  if (!max || compareSemver(max, "3.3.0") < 0) return LWJGL_FALLBACK_VERSION;
+  return max;
+}
+
 /** Flatten VersionArgument[] into string[], evaluating conditional entries via osMatches. */
 function flattenArgs(args: VersionArgument[]): string[] {
   const result: string[] = [];
@@ -76,7 +111,7 @@ function flattenArgs(args: VersionArgument[]): string[] {
 export async function resolveClasspath(
   instanceDir: string,
   installDir: string = INSTALL,
-  lwjglVersion: string = LWJGL_VERSION
+  lwjglOverride?: string
 ): Promise<LaunchConfig> {
   const versionsDir = join(installDir, "versions");
   const librariesDir = join(installDir, "libraries");
@@ -101,6 +136,8 @@ export async function resolveClasspath(
 
   const forge = await loadVersionJson(forgeJsonPath);
   const base = await loadVersionJson(join(versionsDir, mcVersion, `${mcVersion}.json`));
+
+  const lwjglVersion = lwjglOverride ?? detectLwjglVersion(base);
 
   const classpath: string[] = [];
   const seenPaths = new Set<string>();
@@ -182,6 +219,7 @@ export async function resolveClasspath(
     forgeName,
     gameArgs,
     jvmArgs,
+    lwjglVersion,
     mainClass,
     mcVersion,
     modulePath: modulePath ? modulePath.split(":") : [],

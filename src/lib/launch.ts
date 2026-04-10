@@ -6,7 +6,7 @@ import { authenticate } from "./auth.js";
 import { loadConfig } from "./config.js";
 import { LaunchError } from "./errors.js";
 import { findZuluJavaBin } from "./java.js";
-import { CF_BASE, DEFAULT_INSTANCE, INSTALL, LWJGL_VERSION, NATIVES_DIR } from "./paths.js";
+import { CF_BASE, DEFAULT_INSTANCE, INSTALL, nativesDirFor } from "./paths.js";
 import { resolveClasspath } from "./resolve.js";
 
 export type LaunchStep = "auth" | "classpath" | "config" | "java" | "launch";
@@ -21,6 +21,7 @@ export interface LaunchResult {
   cmd: string[];
   forgeName: string;
   instanceDir: string;
+  lwjglVersion: string;
 }
 
 /** Resolve everything needed to launch Minecraft. Does not spawn or print. */
@@ -46,9 +47,12 @@ export async function prepareLaunch(
   const auth = await authenticate(callbacks?.auth);
 
   callbacks?.onStep?.("classpath");
-  const lwjglVersion = config.lwjglVersion ?? LWJGL_VERSION;
-  const resolved = await resolveClasspath(instanceDir, installDir, lwjglVersion);
+  // config.lwjglVersion is a manual override; otherwise resolveClasspath
+  // auto-detects from the base MC version JSON.
+  const resolved = await resolveClasspath(instanceDir, installDir, config.lwjglVersion);
   callbacks?.onStep?.("launch", resolved.forgeName);
+
+  const nativesDir = nativesDirFor(resolved.lwjglVersion);
 
   const xmx = config.xmx ?? "8192m";
   const xms = config.xms ?? "256m";
@@ -58,8 +62,8 @@ export async function prepareLaunch(
   const cmd = [
     java,
     "-XstartOnFirstThread", "-Xss1M",
-    `-Dorg.lwjgl.librarypath=${NATIVES_DIR}`,
-    `-Djava.library.path=${NATIVES_DIR}`,
+    `-Dorg.lwjgl.librarypath=${nativesDir}`,
+    `-Djava.library.path=${nativesDir}`,
     "-Dfml.earlyprogresswindow=false",
     "-Dminecraft.launcher.brand=m1craft",
     ...resolved.jvmArgs,
@@ -90,7 +94,7 @@ export async function prepareLaunch(
     ...resolved.gameArgs,
   ];
 
-  return { auth, cmd, forgeName: resolved.forgeName, instanceDir };
+  return { auth, cmd, forgeName: resolved.forgeName, instanceDir, lwjglVersion: resolved.lwjglVersion };
 }
 
 /** Redact the access token from a command array for display. */

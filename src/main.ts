@@ -51,14 +51,37 @@ function formatError(error: unknown): string {
   return String(error);
 }
 
-async function ensureSetup() {
+/**
+ * Resolve the LWJGL version for a launch by reading the instance's base
+ * MC version JSON. Returns undefined if anything goes wrong (caller falls
+ * back to LWJGL_FALLBACK_VERSION inside checkSetup/runSetup).
+ */
+async function detectLwjglForLaunch(instanceArg: string | undefined): Promise<string | undefined> {
+  const { loadConfig } = await import("./lib/config.js");
+  const { CF_BASE, DEFAULT_INSTANCE, INSTALL } = await import("./lib/paths.js");
+  const { resolveClasspath } = await import("./lib/resolve.js");
+  const { join } = await import("node:path");
+
+  const config = await loadConfig();
+  const instanceDir = instanceArg
+    ?? (config.defaultInstance ? join(CF_BASE, "Instances", config.defaultInstance) : DEFAULT_INSTANCE);
+
+  try {
+    const resolved = await resolveClasspath(instanceDir, INSTALL, config.lwjglVersion);
+    return resolved.lwjglVersion;
+  } catch {
+    return undefined;
+  }
+}
+
+async function ensureSetup(lwjglVersion?: string) {
   const { loadJavaVersion } = await import("./lib/config.js");
   const javaVersion = await loadJavaVersion();
 
   const { checkSetup, runSetup } = await import("./lib/setup.js");
-  const status = await checkSetup(javaVersion);
+  const status = await checkSetup(lwjglVersion, javaVersion);
   if (status.javaFound && status.nativesFound && status.jarsFound) return;
-  await runSetup(javaVersion);
+  await runSetup(lwjglVersion, javaVersion);
 }
 
 try {
@@ -88,8 +111,9 @@ try {
     case "launch":
     case undefined: {
       if (values.help) { printHelp(); break; }
-      await ensureSetup();
 
+      // Pick a default instance first if none is set, so we know which
+      // LWJGL version to install. The setup TUI runs after this.
       if (!values.instance) {
         const { loadConfig } = await import("./lib/config.js");
         const config = await loadConfig();
@@ -105,6 +129,9 @@ try {
           }
         }
       }
+
+      const lwjglVersion = await detectLwjglForLaunch(values.instance);
+      await ensureSetup(lwjglVersion);
 
       if (values["dry-run"]) {
         const { prepareLaunch, redactCmd } = await import("./lib/launch.js");
@@ -125,9 +152,11 @@ try {
       break;
     }
     case "setup": {
-      const { loadJavaVersion } = await import("./lib/config.js");
-      const { runSetup } = await import("./lib/setup.js");
-      await runSetup(await loadJavaVersion());
+      // For pre-warming setup we want the right LWJGL version. Use --instance
+      // if given, otherwise the configured default. Falls back to
+      // LWJGL_FALLBACK_VERSION inside runSetup if neither is available.
+      const lwjglVersion = await detectLwjglForLaunch(values.instance);
+      await ensureSetup(lwjglVersion);
       break;
     }
     default:
