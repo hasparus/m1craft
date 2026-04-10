@@ -82,10 +82,24 @@ export async function resolveClasspath(
   const librariesDir = join(installDir, "libraries");
 
   const instance = await loadCurseForgeInstance(join(instanceDir, "minecraftinstance.json"));
-  const forgeName = instance.baseModLoader.name;
   const mcVersion = instance.gameVersion;
 
-  const forge = await loadVersionJson(join(versionsDir, forgeName, `${forgeName}.json`));
+  // CurseForge stores the loader name as e.g. "fabric-0.18.4-1.20.1", but the
+  // on-disk version directory uses the "fabric-loader-" prefix. Forge names
+  // match on disk directly. Fall back to the prefixed name if the original
+  // doesn't exist.
+  let forgeName = instance.baseModLoader.name;
+  let forgeJsonPath = join(versionsDir, forgeName, `${forgeName}.json`);
+  if (!(await Bun.file(forgeJsonPath).exists()) && forgeName.startsWith("fabric-") && !forgeName.startsWith("fabric-loader-")) {
+    const alt = `fabric-loader-${forgeName.slice("fabric-".length)}`;
+    const altPath = join(versionsDir, alt, `${alt}.json`);
+    if (await Bun.file(altPath).exists()) {
+      forgeName = alt;
+      forgeJsonPath = altPath;
+    }
+  }
+
+  const forge = await loadVersionJson(forgeJsonPath);
   const base = await loadVersionJson(join(versionsDir, mcVersion, `${mcVersion}.json`));
 
   const classpath: string[] = [];
