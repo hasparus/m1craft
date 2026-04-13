@@ -52,10 +52,14 @@ const CurseForgeInstanceSchema = type({
  * "field?" optional fields accept them. CurseForge-shipped Forge/Fabric
  * version JSONs serialize absent optional fields as `"field": null` rather
  * than omitting them; the schema treats missing and null as the same thing.
+ * Null array elements are dropped entirely (same as null object values), so
+ * arrays and objects behave symmetrically.
  */
 function stripNulls(value: unknown): unknown {
   if (value === null) return undefined;
-  if (Array.isArray(value)) return value.map(stripNulls);
+  if (Array.isArray(value)) {
+    return value.map(stripNulls).filter((v) => v !== undefined);
+  }
   if (typeof value === "object") {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {

@@ -1,6 +1,7 @@
 import { join } from "node:path";
 
 import type { AuthCallbacks, AuthResult } from "./auth.js";
+import type { LaunchConfig } from "./resolve.js";
 
 import { authenticate } from "./auth.js";
 import { loadConfig } from "./config.js";
@@ -24,9 +25,14 @@ export interface LaunchResult {
   lwjglVersion: string;
 }
 
-/** Resolve everything needed to launch Minecraft. Does not spawn or print. */
+/**
+ * Resolve everything needed to launch Minecraft. Does not spawn or print.
+ * If `opts.resolved` is provided, the classpath resolution step is skipped
+ * (the caller already did it — typically to know the LWJGL version before
+ * running setup).
+ */
 export async function prepareLaunch(
-  opts: { installDir?: string; instance?: string; },
+  opts: { installDir?: string; instance?: string; resolved?: LaunchConfig; },
   callbacks?: LaunchCallbacks,
 ): Promise<LaunchResult> {
   callbacks?.onStep?.("config");
@@ -49,7 +55,7 @@ export async function prepareLaunch(
   callbacks?.onStep?.("classpath");
   // config.lwjglVersion is a manual override; otherwise resolveClasspath
   // auto-detects from the base MC version JSON.
-  const resolved = await resolveClasspath(instanceDir, installDir, config.lwjglVersion);
+  const resolved = opts.resolved ?? await resolveClasspath(instanceDir, installDir, config.lwjglVersion);
   callbacks?.onStep?.("launch", resolved.forgeName);
 
   const nativesDir = nativesDirFor(resolved.lwjglVersion);

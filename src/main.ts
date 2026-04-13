@@ -1,7 +1,7 @@
 import { isTaggedError } from "errore";
 import { parseArgs } from "node:util";
 
-
+import type { LaunchConfig } from "./lib/resolve.js";
 
 const { positionals, values } = parseArgs({
   allowPositionals: true,
@@ -52,11 +52,13 @@ function formatError(error: unknown): string {
 }
 
 /**
- * Resolve the LWJGL version for a launch by reading the instance's base
- * MC version JSON. Returns undefined if anything goes wrong (caller falls
- * back to LWJGL_FALLBACK_VERSION inside checkSetup/runSetup).
+ * Resolve the instance classpath once so we know which LWJGL version setup
+ * needs to install, and so prepareLaunch can reuse the result instead of
+ * re-parsing the version JSONs. Returns undefined if resolution fails
+ * (callers fall back to LWJGL_FALLBACK_VERSION; prepareLaunch will retry
+ * the resolve and surface the real error).
  */
-async function detectLwjglForLaunch(instanceArg: string | undefined): Promise<string | undefined> {
+async function resolveForLaunch(instanceArg: string | undefined): Promise<LaunchConfig | undefined> {
   const { loadConfig } = await import("./lib/config.js");
   const { CF_BASE, DEFAULT_INSTANCE, INSTALL } = await import("./lib/paths.js");
   const { resolveClasspath } = await import("./lib/resolve.js");
@@ -67,8 +69,7 @@ async function detectLwjglForLaunch(instanceArg: string | undefined): Promise<st
     ?? (config.defaultInstance ? join(CF_BASE, "Instances", config.defaultInstance) : DEFAULT_INSTANCE);
 
   try {
-    const resolved = await resolveClasspath(instanceDir, INSTALL, config.lwjglVersion);
-    return resolved.lwjglVersion;
+    return await resolveClasspath(instanceDir, INSTALL, config.lwjglVersion);
   } catch {
     return undefined;
   }
@@ -130,33 +131,38 @@ try {
         }
       }
 
-      const lwjglVersion = await detectLwjglForLaunch(values.instance);
-      await ensureSetup(lwjglVersion);
+      const resolved = await resolveForLaunch(values.instance);
+      await ensureSetup(resolved?.lwjglVersion);
 
       if (values["dry-run"]) {
         const { prepareLaunch, redactCmd } = await import("./lib/launch.js");
-        const result = await prepareLaunch({ instance: values.instance });
+        const result = await prepareLaunch({ instance: values.instance, resolved });
         console.log(redactCmd(result.cmd).join(" \\\n  "));
       } else {
         const { launchWithTui } = await import("./lib/launch-tui.js");
-        await launchWithTui({ instance: values.instance });
+        await launchWithTui({ instance: values.instance, resolved });
       }
       break;
     }
     case "resolve": {
+      const { loadConfig } = await import("./lib/config.js");
       const { resolveClasspath } = await import("./lib/resolve.js");
-      const { DEFAULT_INSTANCE } = await import("./lib/paths.js");
+      const { DEFAULT_INSTANCE, INSTALL } = await import("./lib/paths.js");
+      const config = await loadConfig();
       const instanceDir = values.instance ?? DEFAULT_INSTANCE;
-      const config = await resolveClasspath(instanceDir);
-      console.log(JSON.stringify(config, null, 2));
+      const resolved = await resolveClasspath(instanceDir, INSTALL, config.lwjglVersion);
+      console.log(JSON.stringify(resolved, null, 2));
       break;
     }
     case "setup": {
-      // For pre-warming setup we want the right LWJGL version. Use --instance
-      // if given, otherwise the configured default. Falls back to
-      // LWJGL_FALLBACK_VERSION inside runSetup if neither is available.
-      const lwjglVersion = await detectLwjglForLaunch(values.instance);
-      await ensureSetup(lwjglVersion);
+      // Always run the TUI so the user sees setup status (✓ already present
+      // vs ↓ downloading) rather than getting silent no-op when everything
+      // is already installed.
+      const { loadJavaVersion } = await import("./lib/config.js");
+      const { runSetup } = await import("./lib/setup.js");
+      const javaVersion = await loadJavaVersion();
+      const resolved = await resolveForLaunch(values.instance);
+      await runSetup(resolved?.lwjglVersion, javaVersion);
       break;
     }
     default:
