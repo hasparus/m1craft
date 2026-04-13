@@ -104,17 +104,18 @@ function createInputRow(renderer: CliRenderer, id: string, fields: { id: string;
   return { inputs, row };
 }
 
-/** Run the interactive config TUI. Resolves when user saves or quits. */
-export async function configTui(): Promise<void> {
-  const config = await loadConfig();
-  const instanceNames = await discoverInstances();
+interface MountOptions {
+  config: UserConfig;
+  instanceNames: string[];
+  /** Persist the assembled config. Defaults to writing it to disk. */
+  onSave?: (config: UserConfig) => Promise<void>;
+  /** ms to leave the "Saved" banner on screen before destroying the renderer. */
+  saveBannerMs?: number;
+}
 
-  if (instanceNames.length === 0) {
-    console.error("No CurseForge instances found. Launch a modpack through CurseForge first.");
-    return;
-  }
-
-  const renderer = await createCliRenderer({ exitOnCtrlC: true, useMouse: true });
+/** Mount the config TUI onto an existing renderer. Returns refs for tests. */
+export function mountConfigTui(renderer: CliRenderer, opts: MountOptions) {
+  const { config, instanceNames, onSave = saveConfig, saveBannerMs = 800 } = opts;
 
   const root = new BoxRenderable(renderer, {
     flexDirection: "column", gap: 1, height: "100%", id: "root", padding: 1, width: "100%",
@@ -142,15 +143,50 @@ export async function configTui(): Promise<void> {
   ]);
   root.add(winRow);
 
+  let saving = false;
+  async function save() {
+    if (saving) return;
+    saving = true;
+    const selected = instanceSelect.getSelectedOption();
+    const javaIdx = javaSelect.getSelectedIndex();
+    const newConfig: UserConfig = {
+      defaultInstance: selected?.name,
+      height: Number.parseInt(heightInput!.value) || undefined,
+      javaVersion: javaVersionValues[javaIdx] ?? "17",
+      width: Number.parseInt(widthInput!.value) || undefined,
+      xms: xmsInput!.value || undefined,
+      xmx: xmxInput!.value || undefined,
+    };
+    await onSave(newConfig);
+    statusBar.content = `Saved to ${getConfigPath()}`;
+    setTimeout(() => { renderer.destroy(); }, saveBannerMs);
+  }
+
+  const saveButton = new TextRenderable(renderer, {
+    bg: "#1e293b",
+    content: "  [ Save ]  ",
+    fg: "#e2e8f0",
+    height: 1,
+    id: "save-button",
+    onKeyDown: (key) => {
+      if (key.name === "return" || key.name === "space") void save();
+    },
+    onMouseDown: () => { void save(); },
+  });
+  saveButton.focusable = true;
+  saveButton.on("focused", () => { saveButton.bg = "#2563eb"; });
+  saveButton.on("blurred", () => { saveButton.bg = "#1e293b"; });
+  root.add(saveButton);
+
   const statusBar = new TextRenderable(renderer, {
-    content: "Tab/Shift+Tab: navigate | Enter: select/confirm | Ctrl+S: save | Ctrl+C: quit",
+    content: "Tab: navigate | Enter: confirm | Ctrl+S / Cmd+S: save | Ctrl+C: quit",
     height: 1,
     id: "status",
   });
   root.add(statusBar);
 
   // Focus management
-  const focusables = [instanceSelect, javaSelect, xmxInput!, xmsInput!, widthInput!, heightInput!];
+  const focusables = [instanceSelect, javaSelect, xmxInput!, xmsInput!, widthInput!, heightInput!, saveButton];
   let currentField = 0;
 
   function focusField(index: number) {
@@ -163,20 +199,8 @@ export async function configTui(): Promise<void> {
       focusField(currentField + 1);
     } else if (key.name === "tab" && key.shift) {
       focusField(currentField - 1);
-    } else if (key.name === "s" && key.ctrl) {
-      const selected = instanceSelect.getSelectedOption();
-      const javaIdx = javaSelect.getSelectedIndex();
-      const newConfig: UserConfig = {
-        defaultInstance: selected?.name,
-        height: Number.parseInt(heightInput!.value) || undefined,
-        javaVersion: javaVersionValues[javaIdx] ?? "17",
-        width: Number.parseInt(widthInput!.value) || undefined,
-        xms: xmsInput!.value || undefined,
-        xmx: xmxInput!.value || undefined,
-      };
-      await saveConfig(newConfig);
-      statusBar.content = `Saved to ${getConfigPath()}`;
-      setTimeout(() => { renderer.destroy(); }, 800);
+    } else if (key.name === "s" && (key.ctrl || key.meta)) {
+      await save();
     }
   });
 
@@ -185,8 +209,23 @@ export async function configTui(): Promise<void> {
   }
 
   renderer.root.add(root);
-  renderer.start();
   focusField(0);
 
+  return { focusField, root, save, saveButton, statusBar };
+}
+
+/** Run the interactive config TUI. Resolves when user saves or quits. */
+export async function configTui(): Promise<void> {
+  const config = await loadConfig();
+  const instanceNames = await discoverInstances();
+
+  if (instanceNames.length === 0) {
+    console.error("No CurseForge instances found. Launch a modpack through CurseForge first.");
+    return;
+  }
+
+  const renderer = await createCliRenderer({ exitOnCtrlC: true, useMouse: true });
+  mountConfigTui(renderer, { config, instanceNames });
+  renderer.start();
   await new Promise<void>((resolve) => { renderer.on("destroy", resolve); });
 }

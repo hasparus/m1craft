@@ -1,119 +1,110 @@
-import {
-  BoxRenderable,
-  InputRenderable,
-  SelectRenderable,
-  TextRenderable,
-} from "@opentui/core";
 import { createTestRenderer } from "@opentui/core/testing";
 import { describe, expect, test } from "bun:test";
 
+import type { UserConfig } from "./config.js";
+
+import { mountConfigTui } from "./config-tui.js";
+
+const baseConfig: UserConfig = {
+  height: 768,
+  javaVersion: "17",
+  width: 1024,
+  xms: "256m",
+  xmx: "8192m",
+};
+const instanceNames = ["Modpack One", "Modpack Two"];
+
+// Keep the post-save banner around so the auto-destroy timer doesn't fire
+// mid-assertion. Tests destroy the renderer explicitly.
+const NEVER = 1_000_000;
+
+const tick = () => new Promise((r) => setTimeout(r, 0));
+
+function makeOnSave() {
+  const saved: UserConfig[] = [];
+  return { onSave: async (c: UserConfig) => { saved.push(c); }, saved };
+}
+
 describe("config TUI", () => {
-  test("renders title, instance selector, and java selector", async () => {
-    const { captureCharFrame, renderer, renderOnce } = await createTestRenderer({
-      height: 30,
-      width: 60,
-    });
-
-    const root = new BoxRenderable(renderer, {
-      flexDirection: "column", gap: 1, height: "100%", id: "root", padding: 1, width: "100%",
-    });
-
-    root.add(new TextRenderable(renderer, { content: "m1craft config", height: 1, id: "title" }));
-    root.add(new TextRenderable(renderer, { content: "Default instance:", height: 1, id: "instance-label" }));
-
-    const select = new SelectRenderable(renderer, {
-      height: 5,
-      id: "instance-select",
-      options: [
-        { description: "/path/to/a", name: "Test Pack A" },
-        { description: "/path/to/b", name: "Test Pack B" },
-      ],
-      selectedIndex: 0,
-      showDescription: true,
-      width: "100%",
-    });
-    root.add(select);
-
-    root.add(new TextRenderable(renderer, { content: "Java version:", height: 1, id: "java-label" }));
-
-    renderer.root.add(root);
+  test("renders selectors, save button, and shortcut hint", async () => {
+    const { captureCharFrame, renderOnce, renderer } = await createTestRenderer({ height: 50, width: 80 });
+    const { onSave } = makeOnSave();
+    mountConfigTui(renderer, { config: baseConfig, instanceNames, onSave, saveBannerMs: NEVER });
     await renderOnce();
 
     const frame = captureCharFrame();
     expect(frame).toContain("m1craft config");
-    expect(frame).toContain("Default instance:");
-    expect(frame).toContain("Test Pack A");
-    expect(frame).toContain("Test Pack B");
-    expect(frame).toContain("Java version:");
+    expect(frame).toContain("Modpack One");
+    expect(frame).toContain("Java 17");
+    expect(frame).toContain("[ Save ]");
+    expect(frame).toContain("Ctrl+S");
+    expect(frame).toContain("Cmd+S");
 
     renderer.destroy();
   });
 
-  test("select navigates with arrow keys", async () => {
-    const { mockInput, renderer, renderOnce } = await createTestRenderer({
-      height: 20,
-      width: 60,
-    });
-
-    const root = new BoxRenderable(renderer, {
-      flexDirection: "column", height: "100%", id: "root", width: "100%",
-    });
-
-    const select = new SelectRenderable(renderer, {
-      height: 6,
-      id: "sel",
-      options: [
-        { description: "", name: "Option A" },
-        { description: "", name: "Option B" },
-        { description: "", name: "Option C" },
-      ],
-      selectedIndex: 0,
-      width: "100%",
-    });
-    root.add(select);
-    renderer.root.add(root);
-    select.focus();
-
+  test("Ctrl+S persists current config", async () => {
+    const { mockInput, renderOnce, renderer } = await createTestRenderer({ height: 50, width: 80 });
+    const { onSave, saved } = makeOnSave();
+    mountConfigTui(renderer, { config: baseConfig, instanceNames, onSave, saveBannerMs: NEVER });
     await renderOnce();
-    expect(select.getSelectedIndex()).toBe(0);
 
-    mockInput.pressArrow("down");
-    await renderOnce();
-    expect(select.getSelectedIndex()).toBe(1);
+    mockInput.pressKey("s", { ctrl: true });
+    await tick();
 
-    mockInput.pressArrow("down");
-    await renderOnce();
-    expect(select.getSelectedIndex()).toBe(2);
+    expect(saved).toHaveLength(1);
+    expect(saved[0]).toEqual({
+      defaultInstance: "Modpack One",
+      height: 768,
+      javaVersion: "17",
+      width: 1024,
+      xms: "256m",
+      xmx: "8192m",
+    });
 
     renderer.destroy();
   });
 
-  test("input field captures typed text", async () => {
-    const { captureCharFrame, mockInput, renderer, renderOnce } = await createTestRenderer({
-      height: 10,
-      width: 40,
-    });
-
-    const root = new BoxRenderable(renderer, {
-      flexDirection: "column", height: "100%", id: "root", width: "100%",
-    });
-
-    const input = new InputRenderable(renderer, {
-      id: "mem-input",
-      placeholder: "e.g. 8192m",
-      value: "",
-      width: "100%",
-    });
-    root.add(input);
-    renderer.root.add(root);
-    input.focus();
-
-    await mockInput.typeText("4096m");
+  test("Cmd+S (meta) also persists", async () => {
+    const { mockInput, renderOnce, renderer } = await createTestRenderer({ height: 50, width: 80 });
+    const { onSave, saved } = makeOnSave();
+    mountConfigTui(renderer, { config: baseConfig, instanceNames, onSave, saveBannerMs: NEVER });
     await renderOnce();
 
-    expect(input.value).toBe("4096m");
-    const frame = captureCharFrame();
-    expect(frame).toContain("4096m");
+    mockInput.pressKey("s", { meta: true });
+    await tick();
+
+    expect(saved).toHaveLength(1);
+
+    renderer.destroy();
+  });
+
+  test("bare 's' does not save (avoids accidental save while focused on a Select)", async () => {
+    const { mockInput, renderOnce, renderer } = await createTestRenderer({ height: 50, width: 80 });
+    const { onSave, saved } = makeOnSave();
+    mountConfigTui(renderer, { config: baseConfig, instanceNames, onSave, saveBannerMs: NEVER });
+    await renderOnce();
+
+    mockInput.pressKey("s");
+    await tick();
+
+    expect(saved).toHaveLength(0);
+
+    renderer.destroy();
+  });
+
+  test("save is idempotent under repeated triggers", async () => {
+    const { mockInput, renderOnce, renderer } = await createTestRenderer({ height: 50, width: 80 });
+    const { onSave, saved } = makeOnSave();
+    mountConfigTui(renderer, { config: baseConfig, instanceNames, onSave, saveBannerMs: NEVER });
+    await renderOnce();
+
+    mockInput.pressKey("s", { ctrl: true });
+    mockInput.pressKey("s", { ctrl: true });
+    mockInput.pressKey("s", { meta: true });
+    await tick();
+
+    expect(saved).toHaveLength(1);
 
     renderer.destroy();
   });
