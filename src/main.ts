@@ -54,11 +54,11 @@ function formatError(error: unknown): string {
 /**
  * Resolve the instance classpath once so we know which LWJGL version setup
  * needs to install, and so prepareLaunch can reuse the result instead of
- * re-parsing the version JSONs. Returns undefined if resolution fails
- * (callers fall back to LWJGL_FALLBACK_VERSION; prepareLaunch will retry
- * the resolve and surface the real error).
+ * re-parsing the version JSONs. Throws on failure — callers decide whether
+ * to surface (launch) or tolerate (setup, when pre-warming without a usable
+ * instance).
  */
-async function resolveForLaunch(instanceArg: string | undefined): Promise<LaunchConfig | undefined> {
+async function resolveForLaunch(instanceArg: string | undefined): Promise<LaunchConfig> {
   const { loadConfig } = await import("./lib/config.js");
   const { CF_BASE, DEFAULT_INSTANCE, INSTALL } = await import("./lib/paths.js");
   const { resolveClasspath } = await import("./lib/resolve.js");
@@ -68,11 +68,7 @@ async function resolveForLaunch(instanceArg: string | undefined): Promise<Launch
   const instanceDir = instanceArg
     ?? (config.defaultInstance ? join(CF_BASE, "Instances", config.defaultInstance) : DEFAULT_INSTANCE);
 
-  try {
-    return await resolveClasspath(instanceDir, INSTALL, config.lwjglVersion);
-  } catch {
-    return undefined;
-  }
+  return resolveClasspath(instanceDir, INSTALL, config.lwjglVersion);
 }
 
 async function ensureSetup(lwjglVersion?: string) {
@@ -114,8 +110,10 @@ try {
       if (values.help) { printHelp(); break; }
 
       // Pick a default instance first if none is set, so we know which
-      // LWJGL version to install. The setup TUI runs after this.
-      if (!values.instance) {
+      // LWJGL version to install. The setup TUI runs after this. Skip the
+      // welcome flow when stdin isn't a TTY (CI, dry-run-from-script, etc) —
+      // configTui would block forever waiting for keyboard input.
+      if (!values.instance && process.stdin.isTTY) {
         const { loadConfig } = await import("./lib/config.js");
         const config = await loadConfig();
         if (!config.defaultInstance) {
@@ -132,7 +130,7 @@ try {
       }
 
       const resolved = await resolveForLaunch(values.instance);
-      await ensureSetup(resolved?.lwjglVersion);
+      await ensureSetup(resolved.lwjglVersion);
 
       if (values["dry-run"]) {
         const { prepareLaunch, redactCmd } = await import("./lib/launch.js");
@@ -161,8 +159,19 @@ try {
       const { loadJavaVersion } = await import("./lib/config.js");
       const { runSetup } = await import("./lib/setup.js");
       const javaVersion = await loadJavaVersion();
-      const resolved = await resolveForLaunch(values.instance);
-      await runSetup(resolved?.lwjglVersion, javaVersion);
+
+      // Pre-warming setup tolerates a missing/invalid instance: a user may be
+      // installing m1craft before launching any modpack from CurseForge, so
+      // we fall back to LWJGL_FALLBACK_VERSION when detection fails. Launch
+      // surfaces the same errors strictly.
+      let lwjglVersion: string | undefined;
+      try {
+        lwjglVersion = (await resolveForLaunch(values.instance)).lwjglVersion;
+      } catch (err) {
+        console.error(`  Note: could not detect LWJGL version (${formatError(err)}). Using fallback.`);
+      }
+
+      await runSetup(lwjglVersion, javaVersion);
       break;
     }
     default:
