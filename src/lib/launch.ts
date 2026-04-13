@@ -1,13 +1,29 @@
 import { join } from "node:path";
 
 import type { AuthCallbacks, AuthResult } from "./auth.js";
+import type { LaunchConfig } from "./resolve.js";
 
 import { authenticate } from "./auth.js";
 import { loadConfig } from "./config.js";
 import { LaunchError } from "./errors.js";
 import { findZuluJavaBin } from "./java.js";
-import { CF_BASE, DEFAULT_INSTANCE, INSTALL, LWJGL_VERSION, NATIVES_DIR } from "./paths.js";
+import { CF_BASE, DEFAULT_INSTANCE, INSTALL, nativesDirFor } from "./paths.js";
 import { resolveClasspath } from "./resolve.js";
+
+/**
+ * Pick the instance directory from an explicit override, then the saved
+ * default modpack, then the hardcoded default. Used in both main.ts (to
+ * resolve before setup knows which LWJGL version to install) and here (when
+ * called without a pre-resolved classpath).
+ */
+export function resolveInstanceDir(
+  instanceArg: string | undefined,
+  defaultInstanceName: string | undefined,
+): string {
+  if (instanceArg) return instanceArg;
+  if (defaultInstanceName) return join(CF_BASE, "Instances", defaultInstanceName);
+  return DEFAULT_INSTANCE;
+}
 
 export type LaunchStep = "auth" | "classpath" | "config" | "java" | "launch";
 
@@ -21,21 +37,24 @@ export interface LaunchResult {
   cmd: string[];
   forgeName: string;
   instanceDir: string;
+  lwjglVersion: string;
 }
 
-/** Resolve everything needed to launch Minecraft. Does not spawn or print. */
+/**
+ * Resolve everything needed to launch Minecraft. Does not spawn or print.
+ * If `opts.resolved` is provided, the classpath resolution step is skipped
+ * (the caller already did it — typically to know the LWJGL version before
+ * running setup). When `opts.resolved` is set, `opts.instance` is ignored;
+ * the instance directory is read from `opts.resolved.instanceDir`.
+ */
 export async function prepareLaunch(
-  opts: { installDir?: string; instance?: string; },
+  opts: { installDir?: string; instance?: string; resolved?: LaunchConfig; },
   callbacks?: LaunchCallbacks,
 ): Promise<LaunchResult> {
   callbacks?.onStep?.("config");
   const config = await loadConfig();
 
   const installDir = opts.installDir ?? INSTALL;
-  const instanceDir = opts.instance
-    ?? (config.defaultInstance
-      ? join(CF_BASE, "Instances", config.defaultInstance)
-      : DEFAULT_INSTANCE);
 
   callbacks?.onStep?.("java");
   const javaVersion = config.javaVersion ?? "17";
@@ -46,9 +65,17 @@ export async function prepareLaunch(
   const auth = await authenticate(callbacks?.auth);
 
   callbacks?.onStep?.("classpath");
-  const lwjglVersion = config.lwjglVersion ?? LWJGL_VERSION;
-  const resolved = await resolveClasspath(instanceDir, installDir, lwjglVersion);
+  // config.lwjglVersion is a manual override; otherwise resolveClasspath
+  // auto-detects from the base MC version JSON.
+  const resolved = opts.resolved ?? await resolveClasspath(
+    resolveInstanceDir(opts.instance, config.defaultInstance),
+    installDir,
+    config.lwjglVersion,
+  );
+  const { instanceDir } = resolved;
   callbacks?.onStep?.("launch", resolved.forgeName);
+
+  const nativesDir = nativesDirFor(resolved.lwjglVersion);
 
   const xmx = config.xmx ?? "8192m";
   const xms = config.xms ?? "256m";
@@ -58,8 +85,8 @@ export async function prepareLaunch(
   const cmd = [
     java,
     "-XstartOnFirstThread", "-Xss1M",
-    `-Dorg.lwjgl.librarypath=${NATIVES_DIR}`,
-    `-Djava.library.path=${NATIVES_DIR}`,
+    `-Dorg.lwjgl.librarypath=${nativesDir}`,
+    `-Djava.library.path=${nativesDir}`,
     "-Dfml.earlyprogresswindow=false",
     "-Dminecraft.launcher.brand=m1craft",
     ...resolved.jvmArgs,
@@ -90,7 +117,7 @@ export async function prepareLaunch(
     ...resolved.gameArgs,
   ];
 
-  return { auth, cmd, forgeName: resolved.forgeName, instanceDir };
+  return { auth, cmd, forgeName: resolved.forgeName, instanceDir, lwjglVersion: resolved.lwjglVersion };
 }
 
 /** Redact the access token from a command array for display. */

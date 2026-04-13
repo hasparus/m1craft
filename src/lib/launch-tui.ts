@@ -7,6 +7,7 @@ import {
 import { SpinnerRenderable } from "opentui-spinner";
 
 import type { AuthCallbacks } from "./auth.js";
+import type { LaunchConfig } from "./resolve.js";
 
 import { type LaunchCallbacks, type LaunchStep, prepareLaunch, redactCmd } from "./launch.js";
 
@@ -146,7 +147,7 @@ export function createLaunchCallbacks(
   return { authCallbacks, launchCallbacks };
 }
 
-export async function launchWithTui(opts: { dryRun?: boolean; instance?: string; }) {
+export async function launchWithTui(opts: { dryRun?: boolean; resolved: LaunchConfig; }) {
   const renderer = await createCliRenderer({ exitOnCtrlC: true, useMouse: false });
   let alive = true;
   renderer.on("destroy", () => { alive = false; });

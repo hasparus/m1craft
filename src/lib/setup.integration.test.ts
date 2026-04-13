@@ -23,7 +23,7 @@ describe("setup", () => {
   });
 
   test("checkSetup reports javaFound=true after install", async () => {
-    const status = await checkSetup("17");
+    const status = await checkSetup(undefined, "17");
     expect(status.javaFound).toBe(true);
   });
 

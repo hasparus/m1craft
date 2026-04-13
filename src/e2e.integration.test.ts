@@ -81,8 +81,9 @@ describe("e2e", () => {
     // Game args
     expect(stdout).toContain("--username");
     expect(stdout).toContain("--gameDir");
-    // Access token should be redacted
-    expect(stdout).toContain("<REDACTED>");
-    expect(stdout).not.toMatch(/--accessToken\s+(?!<REDACTED>)\S/);
+    // Access token should be redacted. The value follows --accessToken
+    // separated by " \\\n  " line continuation, so the gap may contain
+    // whitespace and backslashes.
+    expect(stdout).toMatch(/--accessToken[\s\\]+<REDACTED>/);
   });
 });

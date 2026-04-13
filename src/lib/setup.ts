@@ -5,14 +5,14 @@ import {
   SliderRenderable,
   TextRenderable,
 } from "@opentui/core";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { SpinnerRenderable } from "opentui-spinner";
 
 import { SetupError } from "./errors.js";
 import { findZuluJavaBin, JAVA_DIR } from "./java.js";
 import { makeStepRow, RENDERER_TEARDOWN_MS, type StepRow } from "./launch-tui.js";
-import { INSTALL, LWJGL_VERSION, NATIVES_DIR } from "./paths.js";
+import { INSTALL, LWJGL_FALLBACK_VERSION, NATIVES_BASE, nativesDirFor } from "./paths.js";
 
 const ACCENT = "#2563eb";
 const SURFACE = "#1e293b";
@@ -90,13 +90,18 @@ export interface SetupStatus {
   nativesFound: boolean;
 }
 
-export async function checkSetup(javaVersion = DEFAULT_JAVA_VERSION): Promise<SetupStatus> {
+export async function checkSetup(
+  lwjglVersion: string = LWJGL_FALLBACK_VERSION,
+  javaVersion: string = DEFAULT_JAVA_VERSION,
+): Promise<SetupStatus> {
   const javaFound = (await findZuluJavaBin(javaVersion)) !== null;
-  const nativesFound = await Bun.file(join(NATIVES_DIR, "liblwjgl.dylib")).exists();
+  const nativesFound = await Bun.file(
+    join(nativesDirFor(lwjglVersion), "liblwjgl.dylib"),
+  ).exists();
 
   let jarsFound = true;
   for (const lib of LWJGL_LIBS) {
-    const jarPath = join(LWJGL_DIR, lib, LWJGL_VERSION, `${lib}-${LWJGL_VERSION}.jar`);
+    const jarPath = join(LWJGL_DIR, lib, lwjglVersion, `${lib}-${lwjglVersion}.jar`);
     if (!(await Bun.file(jarPath).exists())) {
       jarsFound = false;
       break;
@@ -165,11 +170,11 @@ async function stepJava(ui: StepUI, javaVersion: string): Promise<string> {
   return javaBin;
 }
 
-async function stepLwjglJars(ui: StepUI): Promise<void> {
+async function stepLwjglJars(ui: StepUI, lwjglVersion: string): Promise<void> {
   let skipped = 0;
   for (const lib of LWJGL_LIBS) {
-    const dest = join(LWJGL_DIR, lib, LWJGL_VERSION);
-    const jarName = `${lib}-${LWJGL_VERSION}.jar`;
+    const dest = join(LWJGL_DIR, lib, lwjglVersion);
+    const jarName = `${lib}-${lwjglVersion}.jar`;
     const jarPath = join(dest, jarName);
     if (await Bun.file(jarPath).exists()) {
       skipped++;
@@ -177,8 +182,8 @@ async function stepLwjglJars(ui: StepUI): Promise<void> {
     }
 
     await mkdir(dest, { recursive: true });
-    const url = `${MAVEN}/${lib}/${LWJGL_VERSION}/${jarName}`;
-    ui.setStatus("↓", `LWJGL ${LWJGL_VERSION} JARs — ${lib}...`);
+    const url = `${MAVEN}/${lib}/${lwjglVersion}/${jarName}`;
+    ui.setStatus("↓", `LWJGL ${lwjglVersion} JARs — ${lib}...`);
     await downloadWithProgress(url, jarPath, (dl, total) => {
       ui.setProgress(dl, total);
     });
@@ -186,37 +191,39 @@ async function stepLwjglJars(ui: StepUI): Promise<void> {
 
   ui.clearProgress();
   if (skipped === LWJGL_LIBS.length) {
-    ui.setStatus("✓", `LWJGL ${LWJGL_VERSION} JARs — already present`);
+    ui.setStatus("✓", `LWJGL ${lwjglVersion} JARs — already present`);
   } else {
-    ui.setStatus("✓", `LWJGL ${LWJGL_VERSION} JARs — ${LWJGL_LIBS.length} libraries`);
+    ui.setStatus("✓", `LWJGL ${lwjglVersion} JARs — ${LWJGL_LIBS.length} libraries`);
   }
 }
 
-async function stepNatives(ui: StepUI): Promise<void> {
-  const marker = join(NATIVES_DIR, "liblwjgl.dylib");
+async function stepNatives(ui: StepUI, lwjglVersion: string): Promise<void> {
+  const nativesDir = nativesDirFor(lwjglVersion);
+  const marker = join(nativesDir, "liblwjgl.dylib");
   if (await Bun.file(marker).exists()) {
     const file = Bun.spawn(["file", marker], { stdout: "pipe" });
     const output = await new Response(file.stdout).text();
     if (output.includes("arm64")) {
-      ui.setStatus("✓", "ARM64 natives — already in place");
+      await cleanupLegacyNatives();
+      ui.setStatus("✓", `ARM64 natives ${lwjglVersion} — already in place`);
       return;
     }
   }
 
-  await mkdir(NATIVES_DIR, { recursive: true });
-  const tmpDir = "/tmp/lwjgl-arm64-setup";
+  await mkdir(nativesDir, { recursive: true });
+  const tmpDir = `/tmp/lwjgl-arm64-setup-${lwjglVersion}`;
   await mkdir(tmpDir, { recursive: true });
 
   for (const lib of LWJGL_LIBS) {
-    const jarName = `${lib}-${LWJGL_VERSION}-natives-macos-arm64.jar`;
-    const url = `${MAVEN}/${lib}/${LWJGL_VERSION}/${jarName}`;
-    ui.setStatus("↓", `ARM64 natives — ${lib}...`);
+    const jarName = `${lib}-${lwjglVersion}-natives-macos-arm64.jar`;
+    const url = `${MAVEN}/${lib}/${lwjglVersion}/${jarName}`;
+    ui.setStatus("↓", `ARM64 natives ${lwjglVersion} — ${lib}...`);
     await downloadWithProgress(url, join(tmpDir, `${lib}-natives.jar`), (dl, total) => {
       ui.setProgress(dl, total);
     });
   }
 
-  ui.setStatus("⚙", "ARM64 natives — extracting dylibs...");
+  ui.setStatus("⚙", `ARM64 natives ${lwjglVersion} — extracting dylibs...`);
   ui.clearProgress();
 
   for (const lib of LWJGL_LIBS) {
@@ -231,17 +238,17 @@ async function stepNatives(ui: StepUI): Promise<void> {
   const src = join(tmpDir, "macos/arm64/org/lwjgl");
   for (const [, dylibPath] of Object.entries(NATIVE_DYLIB_MAP)) {
     const srcFile = join(src, dylibPath);
-    const destFile = join(NATIVES_DIR, dylibPath.split("/").pop()!);
+    const destFile = join(nativesDir, dylibPath.split("/").pop()!);
     if (await Bun.file(srcFile).exists()) {
       await Bun.write(destFile, Bun.file(srcFile));
     }
   }
 
   for (const sub of ["", "glfw", "jemalloc", "openal", "opengl", "stb", "tinyfd"]) {
-    await mkdir(join(NATIVES_DIR, "macos/arm64/org/lwjgl", sub), { recursive: true });
+    await mkdir(join(nativesDir, "macos/arm64/org/lwjgl", sub), { recursive: true });
   }
   const cpTree = Bun.spawn(
-    ["cp", "-R", `${src}/`, join(NATIVES_DIR, "macos/arm64/org/lwjgl/")],
+    ["cp", "-R", `${src}/`, join(nativesDir, "macos/arm64/org/lwjgl/")],
     { stdio: ["ignore", "ignore", "ignore"] },
   );
   if ((await cpTree.exited) !== 0) throw new SetupError({ message: "Failed to copy native library tree" });
@@ -249,14 +256,41 @@ async function stepNatives(ui: StepUI): Promise<void> {
   const jcocoaJar = join(INSTALL, "libraries/ca/weblite/java-objc-bridge/1.1/java-objc-bridge-1.1.jar");
   if (await Bun.file(jcocoaJar).exists()) {
     const unzip = Bun.spawn(
-      ["unzip", "-o", jcocoaJar, "libjcocoa.dylib", "-d", NATIVES_DIR],
+      ["unzip", "-o", jcocoaJar, "libjcocoa.dylib", "-d", nativesDir],
       { stderr: "ignore", stdout: "ignore" },
     );
     if ((await unzip.exited) !== 0) throw new SetupError({ message: "Failed to extract libjcocoa.dylib" });
   }
 
   Bun.spawn(["rm", "-rf", tmpDir]);
-  ui.setStatus("✓", "ARM64 natives — installed");
+  await cleanupLegacyNatives();
+  ui.setStatus("✓", `ARM64 natives ${lwjglVersion} — installed`);
+}
+
+/**
+ * Pre-PR layout put dylibs directly under NATIVES_BASE. We now use
+ * NATIVES_BASE/<lwjgl-version>/, so any top-level dylibs are orphans from
+ * the old layout. Non-recursive: leaves the per-version subdirs alone.
+ * Per-file errors are tolerated (permissions, race with another process)
+ * so one bad file doesn't block cleanup of the rest.
+ */
+async function cleanupLegacyNatives(): Promise<void> {
+  let entries;
+  try {
+    entries = await readdir(NATIVES_BASE, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const e of entries) {
+    if (!e.isFile() || !e.name.endsWith(".dylib")) continue;
+    const path = join(NATIVES_BASE, e.name);
+    try {
+      await unlink(path);
+      console.error(`  Migrated legacy native: removed ${path}`);
+    } catch (error) {
+      console.error(`  Could not remove legacy native ${path}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
 }
 
 
@@ -268,7 +302,10 @@ interface SetupTUI {
   statusLine: TextRenderable;
 }
 
-async function createSetupTUI(javaVersion: string): Promise<{ steps: [StepRow, StepRow, StepRow]; tui: SetupTUI; }> {
+async function createSetupTUI(
+  lwjglVersion: string,
+  javaVersion: string,
+): Promise<{ steps: [StepRow, StepRow, StepRow]; tui: SetupTUI; }> {
   const renderer = await createCliRenderer({ exitOnCtrlC: true, useMouse: false });
 
   const root = new BoxRenderable(renderer, {
@@ -278,9 +315,9 @@ async function createSetupTUI(javaVersion: string): Promise<{ steps: [StepRow, S
 
   const step1 = makeStepRow(renderer, "step1", `Zulu JDK ${javaVersion} ARM64`);
   root.add(step1.row);
-  const step2 = makeStepRow(renderer, "step2", "LWJGL 3.3.3 JARs");
+  const step2 = makeStepRow(renderer, "step2", `LWJGL ${lwjglVersion} JARs`);
   root.add(step2.row);
-  const step3 = makeStepRow(renderer, "step3", "ARM64 native libraries");
+  const step3 = makeStepRow(renderer, "step3", `ARM64 native libraries (LWJGL ${lwjglVersion})`);
   root.add(step3.row);
 
   root.add(new TextRenderable(renderer, { content: "", height: 1, id: "spacer" }));
@@ -349,8 +386,11 @@ async function createSetupTUI(javaVersion: string): Promise<{ steps: [StepRow, S
   return { steps: [step1, step2, step3], tui };
 }
 
-export async function runSetup(javaVersion = DEFAULT_JAVA_VERSION): Promise<void> {
-  const { steps: [step1, step2, step3], tui } = await createSetupTUI(javaVersion);
+export async function runSetup(
+  lwjglVersion: string = LWJGL_FALLBACK_VERSION,
+  javaVersion: string = DEFAULT_JAVA_VERSION,
+): Promise<void> {
+  const { steps: [step1, step2, step3], tui } = await createSetupTUI(lwjglVersion, javaVersion);
 
   tui.showProgress(true);
 
@@ -361,11 +401,11 @@ export async function runSetup(javaVersion = DEFAULT_JAVA_VERSION): Promise<void
     tui.showProgress(true);
 
     const ui2 = tui.makeUI(step2);
-    await stepLwjglJars(ui2);
+    await stepLwjglJars(ui2, lwjglVersion);
     tui.showProgress(true);
 
     const ui3 = tui.makeUI(step3);
-    await stepNatives(ui3);
+    await stepNatives(ui3, lwjglVersion);
 
     tui.showProgress(false);
     if (tui.alive) tui.statusLine.content = "  Setup complete!";

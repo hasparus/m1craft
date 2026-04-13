@@ -9,8 +9,9 @@ import {
   INSTALL,
   LEGACY_AUTH_CACHE_PATH,
   LEGACY_CONFIG_PATH,
-  LWJGL_VERSION,
-  NATIVES_DIR,
+  LWJGL_FALLBACK_VERSION,
+  NATIVES_BASE,
+  nativesDirFor,
 } from "./paths.js";
 
 const home = homedir();
@@ -26,8 +27,13 @@ describe("paths", () => {
     expect(INSTALL).toBe(join(CF_BASE, "Install"));
   });
 
-  test("NATIVES_DIR is under INSTALL", () => {
-    expect(NATIVES_DIR).toBe(join(INSTALL, "natives/arm64"));
+  test("NATIVES_BASE is under INSTALL", () => {
+    expect(NATIVES_BASE).toBe(join(INSTALL, "natives/arm64"));
+  });
+
+  test("nativesDirFor returns per-version path under NATIVES_BASE", () => {
+    expect(nativesDirFor("3.3.1")).toBe(join(NATIVES_BASE, "3.3.1"));
+    expect(nativesDirFor("3.3.3")).toBe(join(NATIVES_BASE, "3.3.3"));
   });
 
   test("getAuthCachePath defaults to ~/.m1craft-auth.json", () => {
@@ -62,7 +68,7 @@ describe("paths", () => {
     expect(LEGACY_CONFIG_PATH).toBe(join(home, ".mc-arm64.json"));
   });
 
-  test("LWJGL_VERSION is a valid semver", () => {
-    expect(LWJGL_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
+  test("LWJGL_FALLBACK_VERSION is a valid semver", () => {
+    expect(LWJGL_FALLBACK_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
   });
 });
