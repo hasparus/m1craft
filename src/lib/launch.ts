@@ -10,6 +10,21 @@ import { findZuluJavaBin } from "./java.js";
 import { CF_BASE, DEFAULT_INSTANCE, INSTALL, nativesDirFor } from "./paths.js";
 import { resolveClasspath } from "./resolve.js";
 
+/**
+ * Pick the instance directory from an explicit override, then the saved
+ * default modpack, then the hardcoded default. Used in both main.ts (to
+ * resolve before setup knows which LWJGL version to install) and here (when
+ * called without a pre-resolved classpath).
+ */
+export function resolveInstanceDir(
+  instanceArg: string | undefined,
+  defaultInstanceName: string | undefined,
+): string {
+  if (instanceArg) return instanceArg;
+  if (defaultInstanceName) return join(CF_BASE, "Instances", defaultInstanceName);
+  return DEFAULT_INSTANCE;
+}
+
 export type LaunchStep = "auth" | "classpath" | "config" | "java" | "launch";
 
 export interface LaunchCallbacks {
@@ -29,7 +44,8 @@ export interface LaunchResult {
  * Resolve everything needed to launch Minecraft. Does not spawn or print.
  * If `opts.resolved` is provided, the classpath resolution step is skipped
  * (the caller already did it — typically to know the LWJGL version before
- * running setup).
+ * running setup). When `opts.resolved` is set, `opts.instance` is ignored;
+ * the instance directory is read from `opts.resolved.instanceDir`.
  */
 export async function prepareLaunch(
   opts: { installDir?: string; instance?: string; resolved?: LaunchConfig; },
@@ -39,10 +55,6 @@ export async function prepareLaunch(
   const config = await loadConfig();
 
   const installDir = opts.installDir ?? INSTALL;
-  const instanceDir = opts.instance
-    ?? (config.defaultInstance
-      ? join(CF_BASE, "Instances", config.defaultInstance)
-      : DEFAULT_INSTANCE);
 
   callbacks?.onStep?.("java");
   const javaVersion = config.javaVersion ?? "17";
@@ -55,7 +67,12 @@ export async function prepareLaunch(
   callbacks?.onStep?.("classpath");
   // config.lwjglVersion is a manual override; otherwise resolveClasspath
   // auto-detects from the base MC version JSON.
-  const resolved = opts.resolved ?? await resolveClasspath(instanceDir, installDir, config.lwjglVersion);
+  const resolved = opts.resolved ?? await resolveClasspath(
+    resolveInstanceDir(opts.instance, config.defaultInstance),
+    installDir,
+    config.lwjglVersion,
+  );
+  const { instanceDir } = resolved;
   callbacks?.onStep?.("launch", resolved.forgeName);
 
   const nativesDir = nativesDirFor(resolved.lwjglVersion);

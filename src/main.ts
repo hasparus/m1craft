@@ -1,7 +1,10 @@
 import { isTaggedError } from "errore";
 import { parseArgs } from "node:util";
 
-import type { LaunchConfig } from "./lib/resolve.js";
+import { loadConfig } from "./lib/config.js";
+import { resolveInstanceDir } from "./lib/launch.js";
+import { INSTALL } from "./lib/paths.js";
+import { type LaunchConfig, resolveClasspath } from "./lib/resolve.js";
 
 const { positionals, values } = parseArgs({
   allowPositionals: true,
@@ -59,15 +62,8 @@ function formatError(error: unknown): string {
  * instance).
  */
 async function resolveForLaunch(instanceArg: string | undefined): Promise<LaunchConfig> {
-  const { loadConfig } = await import("./lib/config.js");
-  const { CF_BASE, DEFAULT_INSTANCE, INSTALL } = await import("./lib/paths.js");
-  const { resolveClasspath } = await import("./lib/resolve.js");
-  const { join } = await import("node:path");
-
   const config = await loadConfig();
-  const instanceDir = instanceArg
-    ?? (config.defaultInstance ? join(CF_BASE, "Instances", config.defaultInstance) : DEFAULT_INSTANCE);
-
+  const instanceDir = resolveInstanceDir(instanceArg, config.defaultInstance);
   return resolveClasspath(instanceDir, INSTALL, config.lwjglVersion);
 }
 
@@ -114,7 +110,6 @@ try {
       // welcome flow when stdin isn't a TTY (CI, dry-run-from-script, etc) —
       // configTui would block forever waiting for keyboard input.
       if (!values.instance && process.stdin.isTTY) {
-        const { loadConfig } = await import("./lib/config.js");
         const config = await loadConfig();
         if (!config.defaultInstance) {
           const { discoverInstances } = await import("./lib/config.js");
@@ -134,21 +129,16 @@ try {
 
       if (values["dry-run"]) {
         const { prepareLaunch, redactCmd } = await import("./lib/launch.js");
-        const result = await prepareLaunch({ instance: values.instance, resolved });
+        const result = await prepareLaunch({ resolved });
         console.log(redactCmd(result.cmd).join(" \\\n  "));
       } else {
         const { launchWithTui } = await import("./lib/launch-tui.js");
-        await launchWithTui({ instance: values.instance, resolved });
+        await launchWithTui({ resolved });
       }
       break;
     }
     case "resolve": {
-      const { loadConfig } = await import("./lib/config.js");
-      const { resolveClasspath } = await import("./lib/resolve.js");
-      const { DEFAULT_INSTANCE, INSTALL } = await import("./lib/paths.js");
-      const config = await loadConfig();
-      const instanceDir = values.instance ?? DEFAULT_INSTANCE;
-      const resolved = await resolveClasspath(instanceDir, INSTALL, config.lwjglVersion);
+      const resolved = await resolveForLaunch(values.instance);
       console.log(JSON.stringify(resolved, null, 2));
       break;
     }
@@ -160,15 +150,16 @@ try {
       const { runSetup } = await import("./lib/setup.js");
       const javaVersion = await loadJavaVersion();
 
-      // Pre-warming setup tolerates a missing/invalid instance: a user may be
-      // installing m1craft before launching any modpack from CurseForge, so
-      // we fall back to LWJGL_FALLBACK_VERSION when detection fails. Launch
-      // surfaces the same errors strictly.
+      // Pre-warming setup (no --instance) tolerates a missing default
+      // modpack — a user may be installing m1craft before launching anything
+      // from CurseForge. With an explicit --instance, resolve errors surface.
       let lwjglVersion: string | undefined;
       try {
-        lwjglVersion = (await resolveForLaunch(values.instance)).lwjglVersion;
-      } catch (err) {
-        console.error(`  Note: could not detect LWJGL version (${formatError(err)}). Using fallback.`);
+        const resolved = await resolveForLaunch(values.instance);
+        lwjglVersion = resolved.lwjglVersion;
+      } catch (error) {
+        if (values.instance) throw error;
+        console.error(`  Note: could not detect LWJGL version (${formatError(error)}). Using fallback.`);
       }
 
       await runSetup(lwjglVersion, javaVersion);

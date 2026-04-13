@@ -23,9 +23,11 @@ export function nativesDirFor(lwjglVersion: string): string {
 }
 
 /**
- * Used when the base MC version ships LWJGL < 3.3.0 (no ARM64 macOS natives).
- * Picked because LWJGL 3.3.3 was the original m1craft target and is known
- * to work with MC 1.16–1.18.x modpacks.
+ * Fallback LWJGL version used when the base MC version JSON declares
+ * LWJGL < 3.3.0 (those releases don't publish macos-arm64 classifier
+ * natives on Maven Central). Must therefore be >= 3.3.0. Known to work
+ * with MC 1.16–1.18.x modpacks (Berk on 1.18.2 is the regression test).
+ * Bump when a newer LWJGL is verified against the same range.
  */
 export const LWJGL_FALLBACK_VERSION = "3.3.3";
 

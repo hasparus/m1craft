@@ -27,7 +27,7 @@ function makeOnSave() {
 
 describe("config TUI", () => {
   test("renders selectors, save button, and shortcut hint", async () => {
-    const { captureCharFrame, renderOnce, renderer } = await createTestRenderer({ height: 50, width: 80 });
+    const { captureCharFrame, renderer, renderOnce } = await createTestRenderer({ height: 50, width: 80 });
     const { onSave } = makeOnSave();
     mountConfigTui(renderer, { config: baseConfig, instanceNames, onSave, saveBannerMs: NEVER });
     await renderOnce();
@@ -44,7 +44,7 @@ describe("config TUI", () => {
   });
 
   test("Ctrl+S persists current config", async () => {
-    const { mockInput, renderOnce, renderer } = await createTestRenderer({ height: 50, width: 80 });
+    const { mockInput, renderer, renderOnce } = await createTestRenderer({ height: 50, width: 80 });
     const { onSave, saved } = makeOnSave();
     mountConfigTui(renderer, { config: baseConfig, instanceNames, onSave, saveBannerMs: NEVER });
     await renderOnce();
@@ -66,7 +66,7 @@ describe("config TUI", () => {
   });
 
   test("Cmd+S (meta) also persists", async () => {
-    const { mockInput, renderOnce, renderer } = await createTestRenderer({ height: 50, width: 80 });
+    const { mockInput, renderer, renderOnce } = await createTestRenderer({ height: 50, width: 80 });
     const { onSave, saved } = makeOnSave();
     mountConfigTui(renderer, { config: baseConfig, instanceNames, onSave, saveBannerMs: NEVER });
     await renderOnce();
@@ -80,7 +80,7 @@ describe("config TUI", () => {
   });
 
   test("bare 's' does not save (avoids accidental save while focused on a Select)", async () => {
-    const { mockInput, renderOnce, renderer } = await createTestRenderer({ height: 50, width: 80 });
+    const { mockInput, renderer, renderOnce } = await createTestRenderer({ height: 50, width: 80 });
     const { onSave, saved } = makeOnSave();
     mountConfigTui(renderer, { config: baseConfig, instanceNames, onSave, saveBannerMs: NEVER });
     await renderOnce();
@@ -94,7 +94,7 @@ describe("config TUI", () => {
   });
 
   test("save is idempotent under repeated triggers", async () => {
-    const { mockInput, renderOnce, renderer } = await createTestRenderer({ height: 50, width: 80 });
+    const { mockInput, renderer, renderOnce } = await createTestRenderer({ height: 50, width: 80 });
     const { onSave, saved } = makeOnSave();
     mountConfigTui(renderer, { config: baseConfig, instanceNames, onSave, saveBannerMs: NEVER });
     await renderOnce();

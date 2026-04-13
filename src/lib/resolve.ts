@@ -35,6 +35,7 @@ export interface LaunchConfig {
   classpath: string[];
   forgeName: string;
   gameArgs: string[];
+  instanceDir: string;
   jvmArgs: string[];
   lwjglVersion: string;
   mainClass: string;
@@ -48,12 +49,14 @@ const CurseForgeInstanceSchema = type({
 });
 
 /**
- * Recursively strip null values from nested objects/arrays so that arktype's
- * "field?" optional fields accept them. CurseForge-shipped Forge/Fabric
- * version JSONs serialize absent optional fields as `"field": null` rather
- * than omitting them; the schema treats missing and null as the same thing.
- * Null array elements are dropped entirely (same as null object values), so
- * arrays and objects behave symmetrically.
+ * Recursively strip null values so arktype's "field?" optional fields accept
+ * them. CurseForge-shipped Forge/Fabric version JSONs serialize absent
+ * optional fields as explicit nulls — e.g. library entries with
+ * `"natives":null`, `"rules":null`, or `"downloads":{"artifact":null}` —
+ * and arktype treats `?` as "missing", not "missing or null", so raw
+ * validation rejected every real-world version JSON. Null array elements
+ * are dropped for symmetry with null object values; we haven't seen
+ * meaningful null array elements in the wild.
  */
 function stripNulls(value: unknown): unknown {
   if (value === null) return undefined;
@@ -72,7 +75,12 @@ function stripNulls(value: unknown): unknown {
 }
 
 async function loadCurseForgeInstance(path: string) {
-  const raw = stripNulls(await Bun.file(path).json());
+  // Unlike version JSONs, CF instance JSONs haven't been observed with
+  // null baseModLoader fields in real-world samples (Berk/Forge 1.18.2,
+  // Otherworld/Forge 1.20.1, Vanilla with Voxy/Fabric 26.1 all have
+  // non-null name/forgeVersion/type/gameVersion as of 2026-04). If a user
+  // reports an arktype error here, re-add stripNulls to this function.
+  const raw = await Bun.file(path).json();
   const result = CurseForgeInstanceSchema(raw);
   if (result instanceof type.errors) throw new ResolveError({ message: `Invalid CurseForge instance at ${path}: ${result.summary}` });
   return result;
@@ -85,14 +93,78 @@ async function loadVersionJson(path: string) {
   return result;
 }
 
-/** Numeric semver compare. Treats missing components as 0. */
-function compareSemver(a: string, b: string): number {
-  const pa = a.split(".").map((n) => Number(n) || 0);
-  const pb = b.split(".").map((n) => Number(n) || 0);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const da = pa[i] ?? 0;
-    const db = pb[i] ?? 0;
+interface ParsedVersion {
+  numeric: number[];
+  /** Non-empty for pre-release/letter-suffixed releases (e.g. "a" in "3.0.0a", "-SNAPSHOT" in "3.3.3-SNAPSHOT"). */
+  suffix: string;
+}
+
+/**
+ * Split a LWJGL version string into a numeric tuple and an optional suffix.
+ * Intentionally permissive — acts as a comparison key; callers validate
+ * shape up-front (see validator regex in resolveClasspath for overrides).
+ * Handles real Maven Central cases: strict "3.3.3" and letter alphas
+ * "3.0.0a"/"3.0.0b", plus semver-style "-SNAPSHOT"/"-rc1" suffixes.
+ */
+export function parseLwjglVersion(v: string): ParsedVersion {
+  const m = /^(\d+(?:\.\d+)*)(.*)$/.exec(v);
+  if (!m) return { numeric: [0], suffix: v };
+  return {
+    numeric: m[1]!.split(".").map((n) => Number(n) || 0),
+    suffix: m[2] ?? "",
+  };
+}
+
+/** Split a suffix into alternating digit / non-digit tokens for natural-sort compare. */
+function tokenizeSuffix(s: string): (number | string)[] {
+  const tokens: (number | string)[] = [];
+  const re = /(\d+)|(\D+)/g;
+  let m;
+  while ((m = re.exec(s)) !== null) {
+    if (m[1] === undefined) {tokens.push(m[2]!);}
+    else {tokens.push(Number(m[1]));}
+  }
+  return tokens;
+}
+
+/**
+ * Compare two LWJGL version strings. Numeric components compare first. On
+ * a tie, an empty suffix (stable) sorts GREATER than any non-empty suffix
+ * (pre-release). When both have suffixes, natural-sort tokenizes each:
+ * digit runs compare numerically (so "rc10" > "rc2"), non-digit runs
+ * lexically, digit runs beat non-digit runs. This matches both semver
+ * convention (3.3.3 > 3.3.3-SNAPSHOT) and LWJGL's actual release order
+ * (3.0.0 > 3.0.0b > 3.0.0a — alphas shipped first, stable came last).
+ */
+export function compareLwjglVersion(a: string, b: string): number {
+  const pa = parseLwjglVersion(a);
+  const pb = parseLwjglVersion(b);
+  const len = Math.max(pa.numeric.length, pb.numeric.length);
+  for (let i = 0; i < len; i++) {
+    const da = pa.numeric[i] ?? 0;
+    const db = pb.numeric[i] ?? 0;
     if (da !== db) return da - db;
+  }
+  if (pa.suffix === pb.suffix) return 0;
+  if (pa.suffix === "") return 1;
+  if (pb.suffix === "") return -1;
+  const ta = tokenizeSuffix(pa.suffix);
+  const tb = tokenizeSuffix(pb.suffix);
+  const tlen = Math.max(ta.length, tb.length);
+  for (let i = 0; i < tlen; i++) {
+    const xa = ta[i];
+    const xb = tb[i];
+    if (xa === undefined) return -1;
+    if (xb === undefined) return 1;
+    if (typeof xa === "number" && typeof xb === "number") {
+      if (xa !== xb) return xa - xb;
+    } else if (typeof xa === "number") {
+      return 1;
+    } else if (typeof xb === "number") {
+      return -1;
+    } else if (xa !== xb) {
+      return xa < xb ? -1 : 1;
+    }
   }
   return 0;
 }
@@ -109,12 +181,11 @@ function compareSemver(a: string, b: string): number {
 function detectLwjglVersion(base: VersionJson): string {
   let max = "";
   for (const lib of base.libraries) {
-    const m = /^org\.lwjgl:lwjgl:([0-9.]+)$/.exec(lib.name);
-    if (!m) continue;
-    const v = m[1]!;
-    if (!max || compareSemver(v, max) > 0) max = v;
+    const coord = parseMaven(lib.name);
+    if (coord.group !== "org.lwjgl" || coord.artifact !== "lwjgl") continue;
+    if (!max || compareLwjglVersion(coord.version, max) > 0) max = coord.version;
   }
-  if (!max || compareSemver(max, "3.3.0") < 0) return LWJGL_FALLBACK_VERSION;
+  if (!max || compareLwjglVersion(max, "3.3.0") < 0) return LWJGL_FALLBACK_VERSION;
   return max;
 }
 
@@ -137,6 +208,12 @@ export async function resolveClasspath(
   installDir: string = INSTALL,
   lwjglOverride?: string
 ): Promise<LaunchConfig> {
+  if (lwjglOverride !== undefined && !/^\d+\.\d+\.\d+[A-Za-z0-9.-]*$/.test(lwjglOverride)) {
+    throw new ResolveError({
+      message: `Invalid lwjglVersion in config: "${lwjglOverride}". Expected MAJOR.MINOR.PATCH with optional suffix (e.g. "3.3.3", "3.0.0a", "3.3.3-SNAPSHOT").`,
+    });
+  }
+
   const versionsDir = join(installDir, "versions");
   const librariesDir = join(installDir, "libraries");
 
@@ -242,6 +319,7 @@ export async function resolveClasspath(
     classpath,
     forgeName,
     gameArgs,
+    instanceDir,
     jvmArgs,
     lwjglVersion,
     mainClass,

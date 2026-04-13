@@ -147,7 +147,7 @@ export function createLaunchCallbacks(
   return { authCallbacks, launchCallbacks };
 }
 
-export async function launchWithTui(opts: { dryRun?: boolean; instance?: string; resolved?: LaunchConfig; }) {
+export async function launchWithTui(opts: { dryRun?: boolean; resolved: LaunchConfig; }) {
   const renderer = await createCliRenderer({ exitOnCtrlC: true, useMouse: false });
   let alive = true;
   renderer.on("destroy", () => { alive = false; });

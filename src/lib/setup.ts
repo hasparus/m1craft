@@ -5,14 +5,14 @@ import {
   SliderRenderable,
   TextRenderable,
 } from "@opentui/core";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { SpinnerRenderable } from "opentui-spinner";
 
 import { SetupError } from "./errors.js";
 import { findZuluJavaBin, JAVA_DIR } from "./java.js";
 import { makeStepRow, RENDERER_TEARDOWN_MS, type StepRow } from "./launch-tui.js";
-import { INSTALL, LWJGL_FALLBACK_VERSION, nativesDirFor } from "./paths.js";
+import { INSTALL, LWJGL_FALLBACK_VERSION, NATIVES_BASE, nativesDirFor } from "./paths.js";
 
 const ACCENT = "#2563eb";
 const SURFACE = "#1e293b";
@@ -204,6 +204,7 @@ async function stepNatives(ui: StepUI, lwjglVersion: string): Promise<void> {
     const file = Bun.spawn(["file", marker], { stdout: "pipe" });
     const output = await new Response(file.stdout).text();
     if (output.includes("arm64")) {
+      await cleanupLegacyNatives();
       ui.setStatus("✓", `ARM64 natives ${lwjglVersion} — already in place`);
       return;
     }
@@ -262,7 +263,34 @@ async function stepNatives(ui: StepUI, lwjglVersion: string): Promise<void> {
   }
 
   Bun.spawn(["rm", "-rf", tmpDir]);
+  await cleanupLegacyNatives();
   ui.setStatus("✓", `ARM64 natives ${lwjglVersion} — installed`);
+}
+
+/**
+ * Pre-PR layout put dylibs directly under NATIVES_BASE. We now use
+ * NATIVES_BASE/<lwjgl-version>/, so any top-level dylibs are orphans from
+ * the old layout. Non-recursive: leaves the per-version subdirs alone.
+ * Per-file errors are tolerated (permissions, race with another process)
+ * so one bad file doesn't block cleanup of the rest.
+ */
+async function cleanupLegacyNatives(): Promise<void> {
+  let entries;
+  try {
+    entries = await readdir(NATIVES_BASE, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const e of entries) {
+    if (!e.isFile() || !e.name.endsWith(".dylib")) continue;
+    const path = join(NATIVES_BASE, e.name);
+    try {
+      await unlink(path);
+      console.error(`  Migrated legacy native: removed ${path}`);
+    } catch (error) {
+      console.error(`  Could not remove legacy native ${path}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
 }
 
 

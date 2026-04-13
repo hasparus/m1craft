@@ -144,8 +144,9 @@ export function mountConfigTui(renderer: CliRenderer, opts: MountOptions) {
   root.add(winRow);
 
   let saving = false;
+  let saved = false;
   async function save() {
-    if (saving) return;
+    if (saving || saved) return;
     saving = true;
     const selected = instanceSelect.getSelectedOption();
     const javaIdx = javaSelect.getSelectedIndex();
@@ -157,9 +158,16 @@ export function mountConfigTui(renderer: CliRenderer, opts: MountOptions) {
       xms: xmsInput!.value || undefined,
       xmx: xmxInput!.value || undefined,
     };
-    await onSave(newConfig);
-    statusBar.content = `Saved to ${getConfigPath()}`;
-    setTimeout(() => { renderer.destroy(); }, saveBannerMs);
+    try {
+      await onSave(newConfig);
+      saved = true;
+      statusBar.content = `Saved to ${getConfigPath()}`;
+      setTimeout(() => { renderer.destroy(); }, saveBannerMs);
+    } catch (error) {
+      statusBar.content = `  Save failed: ${error instanceof Error ? error.message : String(error)}`;
+    } finally {
+      saving = false;
+    }
   }
 
   const saveButton = new TextRenderable(renderer, {
