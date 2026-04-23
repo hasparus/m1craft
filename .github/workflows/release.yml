@@ -1,24 +1,97 @@
 name: Release
 
 on:
-  push:
-    tags: ["v*"]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   release:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Check for release-worthy diff
+        id: diff
+        run: |
+          LATEST=$(git tag --list 'v[0-9]*' --sort=-v:refname | head -n1)
+          LATEST=${LATEST:-$(git rev-list --max-parents=0 HEAD)}
+          CHANGED=$(git diff --name-only "$LATEST" HEAD -- 'src/**' package.json bun.lock)
+          if [ -z "$CHANGED" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "No source changes since $LATEST — skipping release."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "last_tag=$LATEST" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: oven-sh/setup-bun@v2
+        if: steps.diff.outputs.skip == 'false'
 
-      - run: bun install
+      - if: steps.diff.outputs.skip == 'false'
+        run: bun install
 
-      - run: bun run package
+      - if: steps.diff.outputs.skip == 'false'
+        run: bun run package
+
+      - name: Compute next version
+        if: steps.diff.outputs.skip == 'false'
+        id: v
+        run: |
+          LATEST="${{ steps.diff.outputs.last_tag }}"
+          if [[ "$LATEST" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            IFS='.' read -r MAJOR MINOR PATCH <<< "${LATEST#v}"
+            NEXT="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+          else
+            NEXT="v0.1.4"
+          fi
+          echo "tag=$NEXT" >> "$GITHUB_OUTPUT"
+
+      - name: Claude — write changelog
+        if: steps.diff.outputs.skip == 'false'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: --max-turns 3
+          prompt: |
+            Inspect `git log ${{ steps.diff.outputs.last_tag }}..HEAD` and relevant diffs. Decide whether ${{ steps.v.outputs.tag }} is worth cutting.
+
+            If nothing is user-visible (refactors, tests, CI, docs, style — only): write exactly `NO_RELEASE` to /tmp/changelog.md.
+
+            Otherwise, write a changelog to /tmp/changelog.md:
+            - One-line lead, then `## Fixed` / `## Added` / `## Changed` / `## Internal` sections (include only non-empty ones).
+            - One bullet per user-visible change. Cite file paths in backticks when useful.
+            - No emojis, no credits, no summary. Max 20 bullets.
+
+            Err toward NO_RELEASE — a noisy feed trains users to ignore it.
+
+      - name: Check Claude verdict
+        if: steps.diff.outputs.skip == 'false'
+        id: verdict
+        run: |
+          if [ ! -f /tmp/changelog.md ]; then
+            echo "Claude did not produce a changelog — aborting release."
+            exit 1
+          fi
+          if grep -q 'NO_RELEASE' /tmp/changelog.md; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: softprops/action-gh-release@v2
+        if: steps.diff.outputs.skip == 'false' && steps.verdict.outputs.skip == 'false'
         with:
+          tag_name: ${{ steps.v.outputs.tag }}
+          target_commitish: ${{ github.event.workflow_run.head_sha || github.sha }}
+          body_path: /tmp/changelog.md
           files: m1craft-macos-arm64.zip
