@@ -58,7 +58,7 @@ jobs:
 
       - name: Claude — write changelog
         if: steps.diff.outputs.skip == 'false'
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@b4d67413279fc18c6e5de930ae307c4f108714eb # v1
         env:
           GITHUB_TOKEN: ""
           GH_TOKEN: ""
