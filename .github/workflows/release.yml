@@ -1,24 +1,158 @@
 name: Release
 
 on:
-  push:
-    tags: ["v*"]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
 
-permissions:
-  contents: write
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
-  release:
+  build:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: macos-latest
+    permissions:
+      contents: read
+    outputs:
+      skip: ${{ steps.diff.outputs.skip }}
+      tag: ${{ steps.v.outputs.tag }}
+      last_tag: ${{ steps.diff.outputs.last_tag }}
+      sha: ${{ steps.ref.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+
+      - id: ref
+        run: echo "sha=${{ github.event.workflow_run.head_sha || github.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Check for release-worthy diff
+        id: diff
+        run: |
+          LATEST=$(git tag --list 'v[0-9]*' --sort=-v:refname | head -n1)
+          LATEST=${LATEST:-$(git rev-list --max-parents=0 HEAD)}
+          CHANGED=$(git diff --name-only "$LATEST" HEAD -- 'src/**' package.json bun.lock)
+          if [ -z "$CHANGED" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "No source changes since $LATEST — skipping."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "last_tag=$LATEST" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: oven-sh/setup-bun@v2
+        if: steps.diff.outputs.skip == 'false'
 
-      - run: bun install
+      - if: steps.diff.outputs.skip == 'false'
+        run: bun install
 
-      - run: bun run package
+      - if: steps.diff.outputs.skip == 'false'
+        run: bun run package
 
-      - uses: softprops/action-gh-release@v2
+      - name: Compute next version
+        if: steps.diff.outputs.skip == 'false'
+        id: v
+        run: |
+          LATEST="$LAST_TAG"
+          if [[ "$LATEST" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            IFS='.' read -r MAJOR MINOR PATCH <<< "${LATEST#v}"
+            NEXT="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+          else
+            NEXT="v0.1.4"
+          fi
+          echo "tag=$NEXT" >> "$GITHUB_OUTPUT"
+        env:
+          LAST_TAG: ${{ steps.diff.outputs.last_tag }}
+
+      - name: Upload build artifact
+        if: steps.diff.outputs.skip == 'false'
+        uses: actions/upload-artifact@v4
         with:
+          name: build
+          path: m1craft-macos-arm64.zip
+          retention-days: 7
+          if-no-files-found: error
+
+  changelog:
+    needs: build
+    if: needs.build.outputs.skip == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      skip: ${{ steps.gate.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Claude — write changelog
+        uses: anthropics/claude-code-action@b4d67413279fc18c6e5de930ae307c4f108714eb # v1
+        env:
+          GITHUB_TOKEN: ""
+          GH_TOKEN: ""
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ""
+          claude_args: --max-turns 3
+          prompt: |
+            Inspect `git log ${{ needs.build.outputs.last_tag }}..HEAD` and relevant diffs. Decide whether ${{ needs.build.outputs.tag }} is worth cutting.
+
+            If nothing is user-visible (refactors, tests, CI, docs, style — only): write exactly `NO_RELEASE` to /tmp/changelog.md.
+
+            Otherwise, write a changelog to /tmp/changelog.md:
+            - One-line lead, then `## Fixed` / `## Added` / `## Changed` / `## Internal` sections (include only non-empty ones).
+            - One bullet per user-visible change. Cite file paths in backticks when useful.
+            - No emojis, no credits, no summary. Max 20 bullets.
+
+            Err toward NO_RELEASE — a noisy feed trains users to ignore it.
+
+      - name: Gate on Claude verdict
+        id: gate
+        run: |
+          if [ ! -f /tmp/changelog.md ]; then
+            echo "Claude did not produce a changelog — aborting."
+            exit 1
+          fi
+          if grep -q 'NO_RELEASE' /tmp/changelog.md; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload changelog artifact
+        if: steps.gate.outputs.skip == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog
+          path: /tmp/changelog.md
+          retention-days: 7
+
+  publish:
+    needs: [build, changelog]
+    if: needs.changelog.outputs.skip == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: build
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: changelog
+          path: /tmp
+
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          tag_name: ${{ needs.build.outputs.tag }}
+          target_commitish: ${{ needs.build.outputs.sha }}
+          body_path: /tmp/changelog.md
           files: m1craft-macos-arm64.zip
