@@ -94,12 +94,9 @@ jobs:
 
       - name: Claude — write changelog
         uses: anthropics/claude-code-action@b4d67413279fc18c6e5de930ae307c4f108714eb # v1
-        env:
-          GITHUB_TOKEN: ""
-          GH_TOKEN: ""
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ""
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           claude_args: --max-turns 3
           prompt: |
             Inspect `git log ${{ needs.build.outputs.last_tag }}..HEAD` and relevant diffs. Decide whether ${{ needs.build.outputs.tag }} is worth cutting.
