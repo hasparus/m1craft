@@ -7,15 +7,20 @@ on:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
-  changelog:
+  build:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     permissions:
       contents: read
     outputs:
-      skip: ${{ steps.gate.outputs.skip }}
+      skip: ${{ steps.diff.outputs.skip }}
       tag: ${{ steps.v.outputs.tag }}
+      last_tag: ${{ steps.diff.outputs.last_tag }}
       sha: ${{ steps.ref.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
@@ -33,15 +38,24 @@ jobs:
           LATEST=${LATEST:-$(git rev-list --max-parents=0 HEAD)}
           CHANGED=$(git diff --name-only "$LATEST" HEAD -- 'src/**' package.json bun.lock)
           if [ -z "$CHANGED" ]; then
-            echo "diff_skip=true" >> "$GITHUB_OUTPUT"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "No source changes since $LATEST — skipping."
           else
-            echo "diff_skip=false" >> "$GITHUB_OUTPUT"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
             echo "last_tag=$LATEST" >> "$GITHUB_OUTPUT"
           fi
 
+      - uses: oven-sh/setup-bun@v2
+        if: steps.diff.outputs.skip == 'false'
+
+      - if: steps.diff.outputs.skip == 'false'
+        run: bun install
+
+      - if: steps.diff.outputs.skip == 'false'
+        run: bun run package
+
       - name: Compute next version
-        if: steps.diff.outputs.diff_skip == 'false'
+        if: steps.diff.outputs.skip == 'false'
         id: v
         run: |
           LATEST="${{ steps.diff.outputs.last_tag }}"
@@ -53,8 +67,30 @@ jobs:
           fi
           echo "tag=$NEXT" >> "$GITHUB_OUTPUT"
 
+      - name: Upload build artifact
+        if: steps.diff.outputs.skip == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: m1craft-macos-arm64.zip
+          retention-days: 7
+          if-no-files-found: error
+
+  changelog:
+    needs: build
+    if: needs.build.outputs.skip == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      skip: ${{ steps.gate.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.sha }}
+          fetch-depth: 0
+
       - name: Claude — write changelog
-        if: steps.diff.outputs.diff_skip == 'false'
         uses: anthropics/claude-code-action@b4d67413279fc18c6e5de930ae307c4f108714eb # v1
         env:
           GITHUB_TOKEN: ""
@@ -64,7 +100,7 @@ jobs:
           github_token: ""
           claude_args: --max-turns 3
           prompt: |
-            Inspect `git log ${{ steps.diff.outputs.last_tag }}..HEAD` and relevant diffs. Decide whether ${{ steps.v.outputs.tag }} is worth cutting.
+            Inspect `git log ${{ needs.build.outputs.last_tag }}..HEAD` and relevant diffs. Decide whether ${{ needs.build.outputs.tag }} is worth cutting.
 
             If nothing is user-visible (refactors, tests, CI, docs, style — only): write exactly `NO_RELEASE` to /tmp/changelog.md.
 
@@ -75,13 +111,9 @@ jobs:
 
             Err toward NO_RELEASE — a noisy feed trains users to ignore it.
 
-      - name: Gate on diff + verdict
+      - name: Gate on Claude verdict
         id: gate
         run: |
-          if [ "${{ steps.diff.outputs.diff_skip }}" = "true" ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
           if [ ! -f /tmp/changelog.md ]; then
             echo "Claude did not produce a changelog — aborting."
             exit 1
@@ -101,21 +133,15 @@ jobs:
           retention-days: 7
 
   publish:
-    needs: changelog
+    needs: [build, changelog]
     if: needs.changelog.outputs.skip == 'false'
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
-          ref: ${{ needs.changelog.outputs.sha }}
-
-      - uses: oven-sh/setup-bun@v2
-
-      - run: bun install
-
-      - run: bun run package
+          name: build
 
       - uses: actions/download-artifact@v4
         with:
@@ -124,7 +150,7 @@ jobs:
 
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
-          tag_name: ${{ needs.changelog.outputs.tag }}
-          target_commitish: ${{ needs.changelog.outputs.sha }}
+          tag_name: ${{ needs.build.outputs.tag }}
+          target_commitish: ${{ needs.build.outputs.sha }}
           body_path: /tmp/changelog.md
           files: m1craft-macos-arm64.zip
