@@ -92,7 +92,7 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         if: steps.diff.outputs.skip == 'false' && steps.verdict.outputs.skip == 'false'
         with:
           tag_name: ${{ steps.v.outputs.tag }}
