@@ -58,7 +58,7 @@ jobs:
         if: steps.diff.outputs.skip == 'false'
         id: v
         run: |
-          LATEST="${{ steps.diff.outputs.last_tag }}"
+          LATEST="$LAST_TAG"
           if [[ "$LATEST" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             IFS='.' read -r MAJOR MINOR PATCH <<< "${LATEST#v}"
             NEXT="v${MAJOR}.${MINOR}.$((PATCH + 1))"
@@ -66,6 +66,8 @@ jobs:
             NEXT="v0.1.4"
           fi
           echo "tag=$NEXT" >> "$GITHUB_OUTPUT"
+        env:
+          LAST_TAG: ${{ steps.diff.outputs.last_tag }}
 
       - name: Upload build artifact
         if: steps.diff.outputs.skip == 'false'
