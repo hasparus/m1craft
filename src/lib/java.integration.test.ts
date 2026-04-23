@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { join } from "node:path";
 
 import { findZuluDirs, findZuluJavaBin, JAVA_DIR } from "./java.js";
 import { installJava } from "./setup.js";
@@ -28,10 +27,9 @@ describe("findZuluDirs", () => {
   });
 
   test("latest dir has a valid java binary", async () => {
-    const dirs = await findZuluDirs("17");
-    const latest = dirs.at(-1)!;
-    const javaBin = join(JAVA_DIR, latest, "bin/java");
-    expect(await Bun.file(javaBin).exists()).toBe(true);
+    const javaBin = await findZuluJavaBin("17");
+    expect(javaBin).not.toBeNull();
+    expect(await Bun.file(javaBin!).exists()).toBe(true);
   });
 });
 
