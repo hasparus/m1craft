@@ -7,18 +7,24 @@ on:
     branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
-  release:
+  changelog:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      skip: ${{ steps.gate.outputs.skip }}
+      tag: ${{ steps.v.outputs.tag }}
+      sha: ${{ steps.ref.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0
+
+      - id: ref
+        run: echo "sha=${{ github.event.workflow_run.head_sha || github.sha }}" >> "$GITHUB_OUTPUT"
 
       - name: Check for release-worthy diff
         id: diff
@@ -27,24 +33,15 @@ jobs:
           LATEST=${LATEST:-$(git rev-list --max-parents=0 HEAD)}
           CHANGED=$(git diff --name-only "$LATEST" HEAD -- 'src/**' package.json bun.lock)
           if [ -z "$CHANGED" ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "No source changes since $LATEST — skipping release."
+            echo "diff_skip=true" >> "$GITHUB_OUTPUT"
+            echo "No source changes since $LATEST — skipping."
           else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "diff_skip=false" >> "$GITHUB_OUTPUT"
             echo "last_tag=$LATEST" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: oven-sh/setup-bun@v2
-        if: steps.diff.outputs.skip == 'false'
-
-      - if: steps.diff.outputs.skip == 'false'
-        run: bun install
-
-      - if: steps.diff.outputs.skip == 'false'
-        run: bun run package
-
       - name: Compute next version
-        if: steps.diff.outputs.skip == 'false'
+        if: steps.diff.outputs.diff_skip == 'false'
         id: v
         run: |
           LATEST="${{ steps.diff.outputs.last_tag }}"
@@ -57,7 +54,7 @@ jobs:
           echo "tag=$NEXT" >> "$GITHUB_OUTPUT"
 
       - name: Claude — write changelog
-        if: steps.diff.outputs.skip == 'false'
+        if: steps.diff.outputs.diff_skip == 'false'
         uses: anthropics/claude-code-action@b4d67413279fc18c6e5de930ae307c4f108714eb # v1
         env:
           GITHUB_TOKEN: ""
@@ -78,12 +75,15 @@ jobs:
 
             Err toward NO_RELEASE — a noisy feed trains users to ignore it.
 
-      - name: Check Claude verdict
-        if: steps.diff.outputs.skip == 'false'
-        id: verdict
+      - name: Gate on diff + verdict
+        id: gate
         run: |
+          if [ "${{ steps.diff.outputs.diff_skip }}" = "true" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [ ! -f /tmp/changelog.md ]; then
-            echo "Claude did not produce a changelog — aborting release."
+            echo "Claude did not produce a changelog — aborting."
             exit 1
           fi
           if grep -q 'NO_RELEASE' /tmp/changelog.md; then
@@ -92,10 +92,39 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
-        if: steps.diff.outputs.skip == 'false' && steps.verdict.outputs.skip == 'false'
+      - name: Upload changelog artifact
+        if: steps.gate.outputs.skip == 'false'
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: ${{ steps.v.outputs.tag }}
-          target_commitish: ${{ github.event.workflow_run.head_sha || github.sha }}
+          name: changelog
+          path: /tmp/changelog.md
+          retention-days: 7
+
+  publish:
+    needs: changelog
+    if: needs.changelog.outputs.skip == 'false'
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.changelog.outputs.sha }}
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install
+
+      - run: bun run package
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: changelog
+          path: /tmp
+
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          tag_name: ${{ needs.changelog.outputs.tag }}
+          target_commitish: ${{ needs.changelog.outputs.sha }}
           body_path: /tmp/changelog.md
           files: m1craft-macos-arm64.zip
