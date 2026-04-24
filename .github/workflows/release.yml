@@ -97,7 +97,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          claude_args: --max-turns 15
+          claude_args: --max-turns 15 --allowedTools "Bash(git log:*),Bash(git diff:*),Bash(git show:*),Read,Write"
           prompt: |
             Inspect `git log ${{ needs.build.outputs.last_tag }}..HEAD` and relevant diffs. Decide whether ${{ needs.build.outputs.tag }} is worth cutting.
 
