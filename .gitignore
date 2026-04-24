@@ -4,3 +4,4 @@ mc-arm64
 m1craft
 *.zip
 .desloppify/
+.env.agent-ci
